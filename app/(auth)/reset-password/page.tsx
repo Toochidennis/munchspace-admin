@@ -108,7 +108,7 @@ export default function ResetPasswordPage() {
 
               <div className="pt-2">
                 <Link
-                  href="/login"
+                  href="/sign-in"
                   className="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors"
                 >
                   ← Back to Sign In
