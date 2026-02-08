@@ -1,0 +1,335 @@
+"use client";
+
+import React, { useState, useMemo } from "react";
+import {
+  Search,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  PackageSearch,
+} from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+const MOCK_ITEMS = Array.from({ length: 120 }, (_, i) => ({
+  id: i + 1,
+  name: i % 2 === 0 ? "Pounded Yam With Egusi" : "Jollof Rice Special",
+  description: "a delightful blend of velvety pounded yam and flavorful Eg...",
+  sellingPrice: 6000 + i * 10,
+  discountPrice: 150,
+  quantity: "12/100",
+  status: i % 5 === 0 ? "Sold Out" : i % 8 === 0 ? "Unavailable" : "Available",
+  dateAdded: new Date(
+    Date.now() - Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000,
+  ),
+}));
+
+const TABS = ["All", "Available", "Sold Out", "Unavailable"];
+
+export default function ItemsTab() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
+  const [dateFilter, setDateFilter] = useState("7");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Dynamic counts for the tabs based on search/date
+  const tabCounts = useMemo(() => {
+    const searchFiltered = MOCK_ITEMS.filter((item) => {
+      const matchesSearch = item.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const daysAgo =
+        (Date.now() - item.dateAdded.getTime()) / (1000 * 60 * 60 * 24);
+      return matchesSearch && daysAgo <= parseInt(dateFilter);
+    });
+
+    return {
+      All: searchFiltered.length,
+      Available: searchFiltered.filter((i) => i.status === "Available").length,
+      "Sold Out": searchFiltered.filter((i) => i.status === "Sold Out").length,
+      Unavailable: searchFiltered.filter((i) => i.status === "Unavailable")
+        .length,
+    };
+  }, [searchQuery, dateFilter]);
+
+  const filteredItems = useMemo(() => {
+    return MOCK_ITEMS.filter((item) => {
+      const matchesSearch = item.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesStatus = activeTab === "All" || item.status === activeTab;
+      const daysAgo =
+        (Date.now() - item.dateAdded.getTime()) / (1000 * 60 * 60 * 24);
+      return matchesSearch && matchesStatus && daysAgo <= parseInt(dateFilter);
+    });
+  }, [searchQuery, activeTab, dateFilter]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const currentItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) pages.push(1, 2, 3, 4, 5, "...", totalPages);
+      else if (currentPage > totalPages - 4)
+        pages.push(
+          1,
+          "...",
+          totalPages - 4,
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages,
+        );
+      else
+        pages.push(
+          1,
+          "...",
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          "...",
+          totalPages,
+        );
+    }
+    return pages;
+  };
+
+  return (
+    <div className="w-full">
+      <Card className="border border-gray-100 shadow-none rounded-xl bg-white p-6">
+        {/* Header Row */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <h2 className="text-xl font-bold text-gray-900">
+            Total ({filteredItems.length})
+          </h2>
+
+          <div className="flex items-center gap-3">
+            <div className="relative w-64">
+              <Input
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="h-10 border-gray-200 bg-white rounded-lg pr-10 focus-visible:ring-orange-500"
+              />
+              <Search
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+            </div>
+
+            <Select
+              value={dateFilter}
+              onValueChange={(v) => {
+                setDateFilter(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[160px] h-10 border-gray-200 text-gray-600 font-medium rounded-lg">
+                <Calendar size={16} className="mr-2" />
+                <SelectValue placeholder="Select range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Tabs - Numbers displayed exactly as in your image */}
+        <div className="flex items-center gap-6 border-b border-gray-100 mb-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                setCurrentPage(1);
+              }}
+              className={cn(
+                "pb-4 text-sm font-medium transition-all relative",
+                activeTab === tab
+                  ? "text-[#E86B35]"
+                  : "text-gray-400 hover:text-gray-600",
+              )}
+            >
+              {tab} {tabCounts[tab as keyof typeof tabCounts]}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#E86B35]" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Table Content */}
+        <div className="overflow-hidden min-h-[400px]">
+          {filteredItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <PackageSearch className="text-gray-200 mb-4" size={48} />
+              <h3 className="text-lg font-semibold text-gray-900">
+                No items found
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">
+                We couldn't find results for "{searchQuery}"
+              </p>
+              <Button
+                variant="link"
+                className="text-orange-500 mt-2"
+                onClick={() => setSearchQuery("")}
+              >
+                Clear search
+              </Button>
+            </div>
+          ) : (
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50/50 text-gray-500 font-medium border-b border-gray-100">
+                <tr>
+                  <th className="p-4 font-semibold text-gray-900">Items</th>
+                  <th className="p-4 font-semibold text-gray-900">
+                    Selling Price (N)
+                  </th>
+                  <th className="p-4 font-semibold text-gray-900">
+                    Discount Price (N)
+                  </th>
+                  <th className="p-4 font-semibold text-gray-900">Quantity</th>
+                  <th className="p-4 font-semibold text-gray-900">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {currentItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50/30">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                          <img
+                            src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=100"
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{item.name}</p>
+                          <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 font-medium">
+                      {item.sellingPrice.toLocaleString()}
+                    </td>
+                    <td className="p-4 font-medium">{item.discountPrice}</td>
+                    <td className="p-4 font-medium">{item.quantity}</td>
+                    <td className="p-4">
+                      <Badge
+                        className={cn(
+                          "text-white border-none px-3 py-1 rounded text-[10px] font-medium uppercase",
+                          item.status === "Available"
+                            ? "bg-[#66BB6A]"
+                            : item.status === "Sold Out"
+                              ? "bg-red-400"
+                              : "bg-gray-400",
+                        )}
+                      >
+                        {item.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination Section */}
+        {filteredItems.length > 0 && (
+          <div className="flex items-center justify-center gap-6 text-sm border-t pt-6">
+            <p className="text-gray-500">
+              Total{" "}
+              <span className="text-gray-900 font-medium">
+                {filteredItems.length} items
+              </span>
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft size={18} />
+              </Button>
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page, i) => (
+                  <Button
+                    key={i}
+                    variant={currentPage === page ? "default" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "h-8 w-8 rounded font-medium",
+                      currentPage === page
+                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                        : "text-gray-500",
+                    )}
+                    onClick={() =>
+                      typeof page === "number" && setCurrentPage(page)
+                    }
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                <ChevronRight size={18} />
+              </Button>
+            </div>
+            <Select
+              value={`${itemsPerPage}`}
+              onValueChange={(v) => {
+                setItemsPerPage(Number(v));
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="20">20 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
