@@ -6,7 +6,7 @@ export const loginSchema = z.object({
   trustDevice: z.boolean().default(false),
 });
 
-export type LoginFormValues = z.infer<typeof loginSchema>;
+export type LoginFormValues = z.input<typeof loginSchema>;
 
 export const resetPasswordSchema = z.object({
   email: z.email("Please enter a valid email address"),
