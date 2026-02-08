@@ -116,7 +116,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         >
           <Settings size={22} />
           {!isCollapsed && (
-            <span className="text-sm font-medium">Settings</span>
+            <Link href={"/admin/settings"} className="text-sm font-medium">Settings</Link>
           )}
         </button>
         <button
