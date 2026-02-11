@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,11 +26,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} antialiased`}
-      >
-        <Toaster richColors position="top-right" />
-        {children}
+      <body className={`${inter.variable} antialiased`}>
+        <TooltipProvider>
+          <Toaster richColors position="top-right" />
+          {children}
+        </TooltipProvider>
       </body>
     </html>
   );
