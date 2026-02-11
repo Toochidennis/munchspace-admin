@@ -14,6 +14,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Motorbike,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       href: "/admin/orders",
     },
     { icon: <Store size={22} />, label: "Vendors", href: "/admin/vendors" },
+    { icon: <Motorbike size={22} />, label: "Riders", href: "/admin/riders" },
     {
       icon: <Users size={22} />,
       label: "Customers",
@@ -68,18 +70,20 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </div>
 
       {/* Search Bar */}
-      <div className="px-4 mb-6 flex-shrink-0">
-        <div className="relative">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            size={16}
-          />
-          <Input
-            placeholder={isCollapsed ? "" : "Search"}
-            className="pl-10 bg-[#F8F9FA] border-none h-11 focus-visible:ring-1 focus-visible:ring-orange-500"
-          />
+      {!isCollapsed && (
+        <div className="px-4 mb-6 flex-shrink-0">
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={16}
+            />
+            <Input
+              placeholder="Search"
+              className="pl-10 bg-[#F8F9FA] border-none h-11 focus-visible:ring-1 focus-visible:ring-orange-500"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
@@ -116,7 +120,9 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         >
           <Settings size={22} />
           {!isCollapsed && (
-            <Link href={"/admin/settings"} className="text-sm font-medium">Settings</Link>
+            <Link href={"/admin/settings"} className="text-sm font-medium">
+              Settings
+            </Link>
           )}
         </button>
         <button

@@ -748,6 +748,66 @@ function DataTable({ title, type }: any) {
           </tbody>
         </table>
       </div>
+
+
+
+
+      <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => {
+                    setActiveTab(v);
+                    setCurrentPage(1);
+                  }}
+                  className="w-auto"
+                >
+                  <TabsList className="p-1 h-12 border-none bg-">
+                    <TabsTrigger
+                      value="orders"
+                      className="gap-2 px-6 py-4.5 data-[state=active]:bg-gray-100 border border-gray-300 border-r-0 data-[state=active]:border data-[state=active]:border-munchprimary rounded rounded-e-none"
+                    >
+                      <ShoppingBag
+                        size={18}
+                        className={
+                          activeTab === "orders"
+                            ? "text-orange-500"
+                            : "text-slate-400"
+                        }
+                      />{" "}
+                      <span className="font-medium text-sm">Orders</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="vendors"
+                      className="gap-2 px-6 py-4.5 data-[state=active]:bg-white border border-gray-300 border-r-0 data-[state=active]:border data-[state=active]:border-munchprimary rounded-none"
+                    >
+                      <Store
+                        size={18}
+                        className={
+                          activeTab === "vendors"
+                            ? "text-orange-500"
+                            : "text-slate-400"
+                        }
+                      />{" "}
+                      <span className="font-medium text-sm">Vendors</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="sales"
+                      className="gap-2 px-6 py-4.5 data-[state=active]:bg-gray-100 border border-gray-300 data-[state=active]:border data-[state=active]:border-munchprimary rounded rounded-s-none"
+                    >
+                      <ArrowUpRight
+                        size={18}
+                        className={
+                          activeTab === "sales" ? "text-orange-500" : "text-slate-400"
+                        }
+                      />{" "}
+                      <span className="font-medium text-sm">Sales</span>
+                    </TabsTrigger>
+                  </TabsList>
+      </Tabs>
+      
+
+
+
+      
     </Card>
   );
 }
