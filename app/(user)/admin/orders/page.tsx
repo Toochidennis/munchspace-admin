@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   RotateCcw,
   Calendar as CalendarIcon,
@@ -11,6 +11,7 @@ import {
   X,
   MoreHorizontal,
   Eye,
+  EyeOff,
   MessageSquare,
   UserPlus,
   Ban,
@@ -18,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,9 +47,105 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
+import Image from "next/image";
+
+// API Types
+interface OrderStatus {
+  key: string;
+  label: string;
+}
+
+interface OrderItem {
+  name: string;
+  imageUrl: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+interface PaymentStatus {
+  key: string;
+  label: string;
+}
+
+interface OrderLink {
+  rel: string;
+  method: string;
+  href: string;
+  label?: string;
+  targetStatus?: OrderStatus;
+}
+
+interface StatusTransition {
+  key: string;
+  label: string;
+}
+
+interface ApiOrder {
+  orderId: string;
+  orderCode: string;
+  createdAt: string;
+  customerName: string;
+  businessName: string;
+  status: OrderStatus;
+  availableStatusTransitions: StatusTransition[];
+  links: OrderLink[];
+  paymentStatus: PaymentStatus | null;
+  totalAmount: number;
+  items: OrderItem[];
+}
+
+interface OrderGroup {
+  status: OrderStatus;
+  total: number;
+  orders: ApiOrder[];
+}
+
+interface OrdersResponse {
+  success: boolean;
+  statusCode: number;
+  data: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    groups: OrderGroup[];
+  };
+}
+
+// Status key to UI label mapping
+const statusKeyToLabel: Record<string, string> = {
+  pending_payment: "Pending payment",
+  payment_expired: "Payment expired",
+  pending_confirmation: "Awaiting confirmation",
+  preparing: "Preparing",
+  ready_for_pickup: "Ready for pickup",
+  out_for_delivery: "Out for delivery",
+  completed: "Delivered",
+  cancelled: "Cancelled",
+  rejected: "Rejected",
+  returned: "Returned",
+};
+
+// Tab labels matching API status keys
+const tabLabels = [
+  { label: "All", key: "all" },
+  { label: "Pending Payment", key: "pending_payment" },
+  { label: "Payment Expired", key: "payment_expired" },
+  { label: "Awaiting Confirmation", key: "pending_confirmation" },
+  { label: "Preparing", key: "preparing" },
+  { label: "Ready for Pickup", key: "ready_for_pickup" },
+  { label: "Out for Delivery", key: "out_for_delivery" },
+  { label: "Delivered", key: "completed" },
+  { label: "Cancelled", key: "cancelled" },
+  { label: "Rejected", key: "rejected" },
+  { label: "Returned", key: "returned" },
+];
 
 interface Order {
   id: string;
+  orderId: string;
   date: string;
   customer: string;
   vendor: string;
@@ -135,6 +233,12 @@ export default function OrdersPage() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [amountQuery, setAmountQuery] = useState("");
+  const [dateRange, setDateRange] = useState<string>("");
+
+  // API Data
+  const [ordersData, setOrdersData] = useState<OrdersResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Modals
   const [notifyVendorOpen, setNotifyVendorOpen] = useState(false);
@@ -150,162 +254,178 @@ export default function OrdersPage() {
   );
   const [courierSearch, setCourierSearch] = useState("");
 
-  const customers = [
-    "Idris Bello",
-    "Sarah Jenkins",
-    "Alex Kim",
-    "Maria Lopez",
-    "John Doe",
-  ];
+  // Cancel Order Modal State
+  const [cancelOrderOpen, setCancelOrderOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelPassword, setCancelPassword] = useState("");
+  const [cancelPasswordError, setCancelPasswordError] = useState<string | null>(
+    null,
+  );
+  const [showCancelPassword, setShowCancelPassword] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  const vendors = [
-    "Amitex, Yolande",
-    "Chef Zee",
-    "Food Hub",
-    "Sweet Treats",
-    "Quick Bites",
-  ];
+  // Fetch orders from API
+  const fetchOrders = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-  const statuses = [
-    "Awaiting confirmation",
-    "Awaiting pickup",
-    "Out for delivery",
-    "Delivered",
-    "Cancelled",
-    "Returned & refunded",
-  ];
+    try {
+      // Build query params
+      const params = new URLSearchParams();
+      params.set("page", currentPage.toString());
+      params.set("limit", itemsPerPage.toString());
 
-  const productsOptions = [
-    {
-      name: "Burger and Smoothie",
-      qty: 1,
-      price: "₦8,900",
-      category: "Food Court",
-      image:
-        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100&h=100&fit=crop",
-    },
-    {
-      name: "Refuel Max (rice, chicken, coleslaw, drink)",
-      qty: 1,
-      price: "₦8,900",
-      category: "Food Court",
-      image:
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&h=100&fit=crop",
-    },
-    {
-      name: "Ice Cream and Pastries",
-      qty: 1,
-      price: "₦8,900",
-      category: "Sweet Sensation",
-      image:
-        "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=100&h=100&fit=crop",
-    },
-  ];
+      if (dateRange) {
+        params.set("range", dateRange);
+      }
 
-  const couriers: Courier[] = [
-    {
-      id: "c1",
-      name: "Ayodele Muhammed",
-      locations: "Agege / Ogba / Abulegba / Iyanapaja",
-      status: "available",
-      assignments: 0,
-    },
-    {
-      id: "c2",
-      name: "Chukwudi Okeke",
-      locations: "Ikeja / Alausa / Ojodu / Berger",
-      status: "available",
-      assignments: 0,
-    },
-    {
-      id: "c3",
-      name: "Fatima Ibrahim",
-      locations: "Surulere / Yaba / Ebute Metta / Apapa",
-      status: "busy",
-      assignments: 2,
-    },
-    {
-      id: "c4",
-      name: "Emeka Nwosu",
-      locations: "Lekki Phase 1 / Phase 2 / Ikate / Admiralty Way",
-      status: "available",
-      assignments: 0,
-    },
-    {
-      id: "c5",
-      name: "Aisha Bello",
-      locations: "Victoria Island / Ikoyi / Banana Island",
-      status: "available",
-      assignments: 1,
-    },
-    // Add remaining couriers as needed...
-  ];
+      if (startDate && endDate) {
+        params.set("startDate", startDate.toISOString());
+        params.set("endDate", endDate.toISOString());
+      }
 
-  const [allOrders, setAllOrders] = useState<Order[]>(() => {
-    const baseDate = new Date(2026, 1, 8); // February 8, 2026
-    return Array.from({ length: 42 }).map((_, i) => {
-      const orderDate = new Date(baseDate.getTime() - i * 24 * 60 * 60 * 1000);
-      const vendorIndex = i % vendors.length;
-      const selectedVendor = vendors[vendorIndex];
-      const status = statuses[i % statuses.length];
-      const amountNum = 5000 + Math.floor(Math.random() * 10000);
-      const amount = `₦${amountNum.toLocaleString("en-NG")}`;
-      const numProducts = Math.floor(Math.random() * 3) + 1;
-      const products = Array.from({ length: numProducts }).map(
-        () =>
-          productsOptions[Math.floor(Math.random() * productsOptions.length)],
+      if (paymentStatus !== "all") {
+        params.set("paymentStatus", paymentStatus);
+      }
+
+      if (amountQuery) {
+        const amount = parseFloat(amountQuery);
+        if (!isNaN(amount)) {
+          params.set("amount", amount.toString());
+        }
+      }
+
+      const res = await authenticatedFetch(
+        `/admin/orders?${params.toString()}`,
       );
+      const apiRes = await parseApiResponse(res);
 
-      return {
-        id: `#${1002 + i}`,
-        date: orderDate.toLocaleString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "numeric",
-          hour12: true,
-        }),
-        customer: customers[i % customers.length],
-        vendor: selectedVendor,
-        status,
-        amount,
-        paymentStatus: i % 2 === 0 ? "paid" : "pending",
-        products,
-        shippingAddress:
-          "Plot 18, Green man street, opposite NNPC, Ikeja, Lagos",
-      };
-    });
-  });
+      if (!apiRes?.success) {
+        setError(apiRes?.message || "Failed to fetch orders");
+        return;
+      }
 
-  const tabLabels = [
-    "All",
-    "Awaiting Confirmation",
-    "Awaiting Pickup",
-    "Out for Delivery",
-    "Delivered",
-    "Cancelled",
-    "Returned & Refunded",
-  ];
+      setOrdersData(apiRes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch orders");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    currentPage,
+    itemsPerPage,
+    dateRange,
+    startDate,
+    endDate,
+    paymentStatus,
+    amountQuery,
+  ]);
 
-  const labelToStatus: Record<string, string> = {
-    "Awaiting Confirmation": "Awaiting confirmation",
-    "Awaiting Pickup": "Awaiting pickup",
-    "Out for Delivery": "Out for delivery",
-    Delivered: "Delivered",
-    Cancelled: "Cancelled",
-    "Returned & Refunded": "Returned & refunded",
-  };
+  // Fetch on mount and when filters change
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery, dateRange]);
+
+  // Convert API orders to UI format
+  const allOrders: Order[] = useMemo(() => {
+    if (!ordersData?.data?.groups) return [];
+
+    const orders: Order[] = [];
+    for (const group of ordersData.data.groups) {
+      for (const apiOrder of group.orders) {
+        orders.push({
+          id: apiOrder.orderCode,
+          orderId: apiOrder.orderId,
+          date: new Date(apiOrder.createdAt).toLocaleString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+          }),
+          customer: apiOrder.customerName,
+          vendor: apiOrder.businessName,
+          status:
+            statusKeyToLabel[apiOrder.status.key] || apiOrder.status.label,
+          amount: `₦${apiOrder.totalAmount.toLocaleString("en-NG")}`,
+          paymentStatus: apiOrder.paymentStatus?.key || "unknown",
+          products: apiOrder.items.map((item) => ({
+            name: item.name,
+            qty: item.quantity,
+            price: `₦${item.totalPrice.toLocaleString("en-NG")}`,
+            category: "",
+            image: item.imageUrl,
+          })),
+        });
+      }
+    }
+    return orders;
+  }, [ordersData]);
+
+  // Build dynamic tabs from API response
+  const tabs = useMemo(() => {
+    if (!ordersData?.data?.groups) {
+      return [{ label: "All", key: "all", count: 0 }];
+    }
+
+    const groups = ordersData.data.groups;
+    const total = groups.reduce((sum, g) => sum + g.total, 0);
+
+    // Build tabs from API groups - only show statuses that have orders
+    const apiTabs = groups
+      .filter((g) => g.total > 0)
+      .map((g) => ({
+        label: g.status.label,
+        key: g.status.key,
+        count: g.total,
+      }));
+
+    // Always show "All" first
+    return [{ label: "All", key: "all", count: total }, ...apiTabs];
+  }, [ordersData]);
+
+  // Map tab label to status key for filtering
+  const labelToStatusKey: Record<string, string> = useMemo(() => {
+    const map: Record<string, string> = { All: "all" };
+    for (const tab of tabs) {
+      map[tab.label] = tab.key;
+    }
+    return map;
+  }, [tabs]);
 
   useEffect(() => {
     setActiveTab("All");
     setCurrentPage(1);
-  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery]);
+  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery, dateRange]);
 
-  const preFilteredOrders = useMemo(() => {
-    let result = [...allOrders];
+  // Apply search and tab filter client-side
+  const filteredOrders = useMemo(() => {
+    if (!allOrders.length) return [];
 
+    let result = allOrders;
+
+    // Filter by active tab
+    if (activeTab !== "All") {
+      const targetStatusKey = labelToStatusKey[activeTab];
+      if (targetStatusKey) {
+        result = result.filter((order) => {
+          const orderStatusKey = Object.entries(statusKeyToLabel).find(
+            ([, label]) => label === order.status,
+          )?.[0];
+          return orderStatusKey === targetStatusKey;
+        });
+      }
+    }
+
+    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter((order) =>
@@ -319,58 +439,83 @@ export default function OrdersPage() {
       );
     }
 
-    if (paymentStatus !== "all") {
-      result = result.filter((o) => o.paymentStatus === paymentStatus);
-    }
-
-    if (startDate || endDate) {
-      result = result.filter((order) => {
-        const orderDate = new Date(order.date);
-        if (startDate && orderDate < startDate) return false;
-        if (endDate && orderDate > endDate) return false;
-        return true;
-      });
-    }
-
-    if (amountQuery.trim()) {
-      const minAmount = Number(amountQuery);
-      if (!isNaN(minAmount)) {
-        result = result.filter((order) => {
-          const orderAmount = Number(order.amount.replace(/[^\d]/g, ""));
-          return orderAmount >= minAmount;
-        });
-      }
-    }
-
     return result;
-  }, [allOrders, searchQuery, paymentStatus, startDate, endDate, amountQuery]);
-
-  const tabs = useMemo(
-    () =>
-      tabLabels.map((label) => ({
-        label,
-        count:
-          label === "All"
-            ? preFilteredOrders.length
-            : preFilteredOrders.filter((o) => o.status === labelToStatus[label])
-                .length,
-      })),
-    [preFilteredOrders],
-  );
-
-  const filteredOrders = useMemo(() => {
-    if (activeTab === "All") return preFilteredOrders;
-    const targetStatus = labelToStatus[activeTab];
-    return targetStatus
-      ? preFilteredOrders.filter((o) => o.status === targetStatus)
-      : preFilteredOrders;
-  }, [preFilteredOrders, activeTab]);
+  }, [allOrders, searchQuery, activeTab, labelToStatusKey]);
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const displayedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+
+  const gridLayout = "grid grid-cols-[160px_1fr_1fr_1fr_150px_130px_60px]";
+
+  // Status color mapping
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Payment expired":
+        return "bg-red-100 text-red-700";
+      case "Out for delivery":
+        return "bg-blue-100 text-blue-700";
+      case "Delivered":
+        return "bg-green-100 text-green-700";
+      case "Cancelled":
+        return "bg-gray-100 text-gray-700";
+      case "Rejected":
+        return "bg-orange-100 text-orange-700";
+      case "Pending payment":
+        return "bg-yellow-100 text-yellow-700";
+      case "Awaiting confirmation":
+        return "bg-purple-100 text-purple-700";
+      case "Preparing":
+        return "bg-indigo-100 text-indigo-700";
+      case "Ready for pickup":
+        return "bg-pink-100 text-pink-700";
+      case "Returned":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-[#FDB022] text-white";
+    }
+  };
+
+  // Mock couriers for now - would come from API
+  const couriers = [
+    {
+      id: "c1",
+      name: "Ayodele Muhammed",
+      locations: "Agege / Ogba / Abulegba",
+      status: "available" as const,
+      assignments: 0,
+    },
+    {
+      id: "c2",
+      name: "Chukwudi Okeke",
+      locations: "Ikeja / Alausa / Ojodu",
+      status: "available" as const,
+      assignments: 0,
+    },
+    {
+      id: "c3",
+      name: "Fatima Ibrahim",
+      locations: "Surulere / Yaba / Ebute Metta",
+      status: "busy" as const,
+      assignments: 2,
+    },
+    {
+      id: "c4",
+      name: "Emeka Nwosu",
+      locations: "Lekki Phase 1 / Phase 2",
+      status: "available" as const,
+      assignments: 0,
+    },
+    {
+      id: "c5",
+      name: "Aisha Bello",
+      locations: "Victoria Island / Ikoyi",
+      status: "available" as const,
+      assignments: 1,
+    },
+  ];
 
   const filteredCouriers = useMemo(() => {
     let list = couriers;
@@ -388,17 +533,118 @@ export default function OrdersPage() {
     return list;
   }, [courierTab, courierSearch]);
 
-  const gridLayout = "grid grid-cols-[160px_1fr_1fr_1fr_150px_130px_60px]";
+  const handleCancelOrderClick = (orderId: string, orderDbId: string) => {
+    setCancelOrderId(orderDbId);
+    setCancelReason("");
+    setCancelPassword("");
+    setCancelOrderOpen(true);
+  };
 
-  const handleCancelOrder = (ids: string[]) => {
-    toast.promise(new Promise((resolve) => setTimeout(resolve, 1200)), {
-      loading: `Cancelling ${ids.length} order${ids.length !== 1 ? "s" : ""}...`,
-      success: "Order(s) cancelled successfully",
-      error: "Failed to cancel order",
-    });
+  const handleBulkCancelOrderClick = () => {
+    if (selectedOrders.length === 1) {
+      // Find the order's orderId
+      const order = allOrders.find((o) => o.id === selectedOrders[0]);
+      if (order) {
+        handleCancelOrderClick(order.id, order.orderId);
+      }
+    } else if (selectedOrders.length > 1) {
+      toast.error(
+        "Bulk cancellation is not supported. Please cancel one order at a time.",
+      );
+    }
+  };
 
-    setAllOrders((prev) => prev.filter((o) => !ids.includes(o.id)));
-    setSelectedOrders((prev) => prev.filter((id) => !ids.includes(id)));
+  const submitCancelOrder = async () => {
+    // Client-side validation
+    setCancelPasswordError(null);
+
+    if (!cancelOrderId) {
+      toast.error("No order selected");
+      return;
+    }
+
+    if (!cancelReason.trim()) {
+      toast.error("Please provide a reason for cancellation");
+      return;
+    }
+
+    if (!cancelPassword.trim()) {
+      setCancelPasswordError("Password is required");
+      return;
+    }
+
+    // Password validation (same as login)
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
+    if (!passwordRegex.test(cancelPassword)) {
+      setCancelPasswordError(
+        "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
+      );
+      return;
+    }
+
+    setIsCancelling(true);
+
+    try {
+      // Use direct fetch instead of authenticatedFetch to handle 401 properly
+      // (401 here means wrong password, not token expiration)
+      const token =
+        typeof window !== "undefined"
+          ? JSON.parse(localStorage.getItem("accessToken") || "{}").value
+          : null;
+
+      const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || "";
+      const API_KEY = process.env.NEXT_PUBLIC_MUNCHSPACE_API_KEY || "";
+
+      const response = await fetch(
+        `${API_BASE}/admin/orders/${cancelOrderId}/cancel`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            reason: cancelReason.trim(),
+            password: cancelPassword.trim(),
+          }),
+        },
+      );
+
+      const result = await parseApiResponse(response);
+
+      // Handle 401 Unauthorized - incorrect password
+      if (response.status === 401) {
+        setCancelPasswordError("Incorrect password");
+        setIsCancelling(false);
+        return;
+      }
+
+      if (result?.success) {
+        toast.success("Order cancelled successfully");
+        setCancelOrderOpen(false);
+        setCancelOrderId(null);
+        setCancelReason("");
+        setCancelPassword("");
+        setCancelPasswordError(null);
+
+        // Clear selection if the cancelled order was selected
+        setSelectedOrders((prev) => prev.filter((id) => id !== cancelOrderId));
+
+        // Refresh orders list
+        fetchOrders();
+      } else {
+        // Show the error message from the API response
+        const errorMessage =
+          result?.error || result?.message || "Failed to cancel order";
+        toast.error(errorMessage);
+      }
+    } catch (err) {
+      toast.error("An error occurred while cancelling the order");
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const getPageNumbers = () => {
@@ -430,23 +676,51 @@ export default function OrdersPage() {
       <div className="max-w-[1400px] mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gray-900">
-            Total ({filteredOrders.length})
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading...
+              </span>
+            ) : error ? (
+              <span className="text-red-500">{error}</span>
+            ) : (
+              `Total (${ordersData?.data?.total || filteredOrders.length})`
+            )}
           </h1>
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               className="border border-gray-200 bg-white rounded-md"
+              onClick={() => fetchOrders()}
+              disabled={isLoading}
             >
-              <RotateCcw size={18} />
+              <RotateCcw
+                size={18}
+                className={isLoading ? "animate-spin" : ""}
+              />
             </Button>
-            <Button
-              variant="outline"
-              className="gap-2 border-gray-200 text-gray-700 rounded-md font-normal h-10"
+            <Select
+              value={dateRange || "all"}
+              onValueChange={(val) => {
+                setDateRange(val === "all" ? "" : val);
+                setStartDate(undefined);
+                setEndDate(undefined);
+              }}
             >
-              <CalendarIcon size={18} className="text-gray-400" /> Last 30 days{" "}
-              <ChevronDown size={16} />
-            </Button>
+              <SelectTrigger className="w-[180px] gap-2 border-gray-200 text-gray-700 rounded-md font-normal h-10">
+                <CalendarIcon size={18} className="text-gray-400" />
+                <SelectValue placeholder="Last 30 days" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                <SelectItem value="last_week">Last week</SelectItem>
+                <SelectItem value="last_30_days">Last 30 days</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -487,19 +761,44 @@ export default function OrdersPage() {
                   <Filter size={16} /> Filter
                 </div>
 
+                <Select
+                  value={dateRange || "all"}
+                  onValueChange={(val) => {
+                    setDateRange(val === "all" ? "" : val);
+                    setStartDate(undefined);
+                    setEndDate(undefined);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                    <SelectItem value="last_week">Last week</SelectItem>
+                    <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <Select value={paymentStatus} onValueChange={setPaymentStatus}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Payment status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="INITIATED">Initiated</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="SUCCESS">Success</SelectItem>
+                    <SelectItem value="FAILED">Failed</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    <SelectItem value="REFUNDED">Refunded</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <Input
-                  placeholder="Min Amount (₦)"
+                  placeholder="Amount (₦)"
                   value={amountQuery}
                   onChange={(e) => setAmountQuery(e.target.value)}
                   className="w-[180px]"
@@ -564,6 +863,7 @@ export default function OrdersPage() {
                     setStartDate(undefined);
                     setEndDate(undefined);
                     setAmountQuery("");
+                    setDateRange("");
                   }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" /> Clear
@@ -638,7 +938,7 @@ export default function OrdersPage() {
               size="sm"
               className="text-red-400 border-gray-100"
               disabled={!selectedOrders.length}
-              onClick={() => handleCancelOrder(selectedOrders)}
+              onClick={handleBulkCancelOrderClick}
             >
               Cancel Order
             </Button>
@@ -716,7 +1016,12 @@ export default function OrdersPage() {
                       {order.vendor}
                     </div>
                     <div className="flex items-center border-r border-gray-100 px-4">
-                      <span className="bg-[#FDB022] text-white px-2 py-1 rounded-[4px] text-[11px] font-medium whitespace-nowrap w-full text-center">
+                      <span
+                        className={cn(
+                          "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap w-full text-center",
+                          getStatusColor(order.status),
+                        )}
+                      >
                         {order.status.slice(0, 14) +
                           (order.status.length > 14 ? "..." : "")}
                       </span>
@@ -779,7 +1084,9 @@ export default function OrdersPage() {
                           <div className="h-px bg-gray-100 my-1" />
                           <DropdownMenuItem
                             className="gap-2 py-2.5 text-red-500"
-                            onClick={() => handleCancelOrder([order.id])}
+                            onClick={() =>
+                              handleCancelOrderClick(order.id, order.orderId)
+                            }
                           >
                             <Ban size={16} /> Cancel Order
                           </DropdownMenuItem>
@@ -833,10 +1140,13 @@ export default function OrdersPage() {
                             >
                               <div className="flex gap-4">
                                 <div className="h-14 w-14 rounded-md overflow-hidden border border-gray-200 flex-shrink-0">
-                                  <img
+                                  <Image
                                     src={p.image}
                                     alt={p.name}
+                                    width={300}
+                                    height={250}
                                     className="h-full w-full object-cover"
+                                    priority
                                   />
                                 </div>
                                 <div className="space-y-1">
@@ -1239,6 +1549,119 @@ export default function OrdersPage() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </CustomModal>
+
+      {/* Cancel Order Confirmation Modal */}
+      <CustomModal
+        isOpen={cancelOrderOpen}
+        onClose={() => {
+          if (!isCancelling) {
+            setCancelOrderOpen(false);
+            setCancelOrderId(null);
+            setCancelReason("");
+            setCancelPassword("");
+            setCancelPasswordError(null);
+          }
+        }}
+        title="Cancel Order"
+        maxWidth="sm:max-w-[480px]"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelOrderOpen(false);
+                setCancelOrderId(null);
+                setCancelReason("");
+                setCancelPassword("");
+              }}
+              disabled={isCancelling}
+            >
+              Close
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={submitCancelOrder}
+              disabled={
+                isCancelling || !cancelReason.trim() || !cancelPassword.trim()
+              }
+            >
+              {isCancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Confirm Cancel"
+              )}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          <div>
+            <p className="text-sm text-gray-700 mb-4">
+              You are about to cancel order{" "}
+              <span className="font-medium">{cancelOrderId}</span>.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Reason for cancellation
+                </label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Enter the reason for cancelling this order..."
+                  rows={4}
+                  className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
+                  disabled={isCancelling}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Enter your password to confirm
+                </label>
+                <div className="relative">
+                  <Input
+                    type={showCancelPassword ? "text" : "password"}
+                    value={cancelPassword}
+                    onChange={(e) => {
+                      setCancelPassword(e.target.value);
+                      if (cancelPasswordError) setCancelPasswordError(null);
+                    }}
+                    placeholder="Your account password"
+                    className={cn(
+                      "h-11 pr-10",
+                      cancelPasswordError &&
+                        "border-red-500 focus:ring-red-500",
+                    )}
+                    disabled={isCancelling}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelPassword(!showCancelPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    disabled={isCancelling}
+                  >
+                    {showCancelPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </div>
+                {cancelPasswordError && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {cancelPasswordError}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </CustomModal>
