@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Check, EyeIcon } from "lucide-react";
+import { Check } from "lucide-react";
 
 import {
-  createNewPasswordSchema,
-  type CreateNewPasswordValues,
+  resetPasswordSchema,
+  type ResetPasswordValues,
 } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,31 +23,34 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import Link from "next/link";
 
-export default function CreateNewPasswordPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
   const [isSuccess, setIsSuccess] = useState(false);
-  const [showPass, setShowPass] = useState(false);
-  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
 
-  const form = useForm<CreateNewPasswordValues>({
-    resolver: zodResolver(createNewPasswordSchema),
+  const form = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      password: "",
-      confirmPassword: "",
+      email: "",
     },
   });
 
-  const onSubmit: SubmitHandler<CreateNewPasswordValues> = async (data) => {
+  const onSubmit: SubmitHandler<ResetPasswordValues> = async (data) => {
     toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
-      loading: "Updating password...",
+      loading: "Processing request...",
       success: () => {
+        setSubmittedEmail(data.email);
         setIsSuccess(true);
-        return "Password updated!";
+        return "Reset link generated!";
       },
-      error: "Failed to update password.",
+      error: "Something went wrong. Please try again.",
     });
+  };
+
+  const handleGoToLogin = () => {
+    setIsSuccess(false);
+    router.push("/login");
   };
 
   return (
@@ -66,70 +70,29 @@ export default function CreateNewPasswordPage() {
       <div className="basis-full lg:basis-2/4 h-screen flex items-center justify-center px-10 md:px-20 lg:px-30">
         <div className="z-10 w-full max-w-[420px]">
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 mb-2">
-            Create New Password
+            Reset Your Password
           </h1>
           <p className="text-slate-500 text-sm mb-10 leading-relaxed">
-            Secure your account by setting your new password.
+            Enter your email address below, and we'll send you a link to create
+            a new password.
           </p>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="password"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-slate-600 font-semibold">
-                      New password{" "}
-                      <span className="text-(--color-munchred)">*</span>
+                      Email <span className="text-(--color-munchred)">*</span>
                     </FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showPass ? "text" : "password"}
-                          placeholder="New password"
-                          className="bg-slate-50 border-slate-200 h-12 pr-10 focus-visible:ring-1 focus-visible:ring-(--color-munchprimary)"
-                          {...field}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPass(!showPass)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          <EyeIcon size={18} />
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage className="text-(--color-munchred)" />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-600 font-semibold">
-                      Confirm password{" "}
-                      <span className="text-(--color-munchred)">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showConfirmPass ? "text" : "password"}
-                          placeholder="Confirm password"
-                          className="bg-slate-50 border-slate-200 h-12 pr-10 focus-visible:ring-1 focus-visible:ring-(--color-munchprimary)"
-                          {...field}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPass(!showConfirmPass)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          <EyeIcon size={18} />
-                        </button>
-                      </div>
+                      <Input
+                        placeholder="Email address"
+                        className="bg-slate-50 border-slate-200 h-12 focus-visible:ring-1 focus-visible:ring-(--color-munchprimary)"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage className="text-(--color-munchred)" />
                   </FormItem>
@@ -140,8 +103,17 @@ export default function CreateNewPasswordPage() {
                 type="submit"
                 className="h-10 px-6 font-normal bg-(--color-munchprimary) hover:bg-(--color-munchprimaryDark) transition-all text-white rounded shadow-sm"
               >
-                Create Password
+                Reset Password
               </Button>
+
+              <div className="pt-2">
+                <Link
+                  href="/login"
+                  className="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors"
+                >
+                  ← Back to Sign In
+                </Link>
+              </div>
             </form>
           </Form>
         </div>
@@ -156,9 +128,9 @@ export default function CreateNewPasswordPage() {
         }}
       />
 
-      {/* Full-Screen Success Overlay (No Close Button) */}
+      {/* Full-Screen Success Overlay */}
       {isSuccess && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-6">
           <div className="w-full max-w-[440px] bg-white p-10 rounded-xl shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
             {/* Success Icon */}
             <div className="w-16 h-16 rounded-full border-2 border-dashed border-(--color-munchprimary) flex items-center justify-center mb-6">
@@ -168,18 +140,22 @@ export default function CreateNewPasswordPage() {
             </div>
 
             <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              Password Updated Successfully
+              Check Your Email
             </h2>
             <p className="text-slate-500 text-sm leading-relaxed mb-8 px-4">
-              Your password has been updated. You can now use your new password
-              to log in to your account.
+              We've sent a link to reset your password to{" "}
+              <span className="text-blue-500 font-medium">
+                {submittedEmail || "your email"}
+              </span>
+              . Please check your inbox and follow the instructions in the email
+              to create a new password.
             </p>
 
             <Button
-              onClick={() => router.push("/sign-in")}
+              onClick={handleGoToLogin}
               className="w-full h-12 bg-(--color-munchprimary) hover:bg-(--color-munchprimaryDark) text-white font-semibold rounded text-lg transition-colors"
             >
-              Go to Login
+              Got it
             </Button>
           </div>
         </div>

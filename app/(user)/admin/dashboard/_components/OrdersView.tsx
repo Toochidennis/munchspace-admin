@@ -1,28 +1,39 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
+import Link from "next/link";
+import { format } from "date-fns";
 import {
-  RotateCcw,
-  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
+  MoreHorizontal,
+  Eye,
+  MessageSquare,
+  Ban,
   Search,
   Download,
   Filter,
-  X,
-  MoreHorizontal,
-  Eye,
-  EyeOff,
-  MessageSquare,
-  UserPlus,
-  Ban,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
+  Info,
   Trash2,
-  Loader2,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  UserPlus,
+  RotateCcw,
+  X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,122 +41,42 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
 import { toast } from "sonner";
-import { authenticatedFetch, parseApiResponse } from "@/lib/api";
-import Image from "next/image";
 
-// API Types
-interface OrderStatus {
-  key: string;
-  label: string;
-}
-
-interface OrderItem {
-  name: string;
-  imageUrl: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-}
-
-interface PaymentStatus {
-  key: string;
-  label: string;
-}
-
-interface OrderLink {
-  rel: string;
-  method: string;
-  href: string;
-  label?: string;
-  targetStatus?: OrderStatus;
-}
-
-interface StatusTransition {
-  key: string;
-  label: string;
-}
-
-interface ApiOrder {
-  orderId: string;
-  orderCode: string;
-  createdAt: string;
-  customerName: string;
-  businessName: string;
-  status: OrderStatus;
-  availableStatusTransitions: StatusTransition[];
-  links: OrderLink[];
-  paymentStatus: PaymentStatus | null;
-  totalAmount: number;
-  items: OrderItem[];
-}
-
-interface OrderGroup {
-  status: OrderStatus;
-  total: number;
-  orders: ApiOrder[];
-}
-
-interface OrdersResponse {
-  success: boolean;
-  statusCode: number;
-  data: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    groups: OrderGroup[];
-  };
-}
-
-// Status key to UI label mapping
-const statusKeyToLabel: Record<string, string> = {
-  pending_payment: "Pending payment",
-  payment_expired: "Payment expired",
-  pending_confirmation: "Awaiting confirmation",
-  preparing: "Preparing",
-  ready_for_pickup: "Ready for pickup",
-  out_for_delivery: "Out for delivery",
-  completed: "Delivered",
-  cancelled: "Cancelled",
-  rejected: "Rejected",
-  returned: "Returned",
-};
-
-// Tab labels matching API status keys
-const tabLabels = [
-  { label: "All", key: "all" },
-  { label: "Pending Payment", key: "pending_payment" },
-  { label: "Payment Expired", key: "payment_expired" },
-  { label: "Awaiting Confirmation", key: "pending_confirmation" },
-  { label: "Preparing", key: "preparing" },
-  { label: "Ready for Pickup", key: "ready_for_pickup" },
-  { label: "Out for Delivery", key: "out_for_delivery" },
-  { label: "Delivered", key: "completed" },
-  { label: "Cancelled", key: "cancelled" },
-  { label: "Rejected", key: "rejected" },
-  { label: "Returned", key: "returned" },
-];
+// Data & Utils
+import { MOCK_ORDERS, dailyData, completionData } from "../lib/dashboard-data";
+import {
+  getFilteredData,
+  getPageNumbers,
+  renderCustomizedLabel,
+} from "../lib/dashboard-utils";
+import { StatCard } from "./StatCard";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Order {
   id: string;
-  orderId: string;
   date: string;
   customer: string;
   vendor: string;
@@ -219,28 +150,23 @@ function CustomModal({
   );
 }
 
-export default function OrdersPage() {
-  const [activeTab, setActiveTab] = useState("All");
-  const [isFilterOpen, setIsFilterOpen] = useState(true);
+export const OrdersView = () => {
+  // Filter States
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-  const [expandedRows, setExpandedRows] = useState<string[]>([]);
+  const [paymentStatus, setPaymentStatus] = useState("all");
+  const [amountQuery, setAmountQuery] = useState("");
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+
+  // Table States
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [expandedRows, setExpandedRows] = useState<string[]>([]);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
-  // Filters
-  const [paymentStatus, setPaymentStatus] = useState("all");
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [amountQuery, setAmountQuery] = useState("");
-  const [dateRange, setDateRange] = useState<string>("");
-
-  // API Data
-  const [ordersData, setOrdersData] = useState<OrdersResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Modals
+  // Modal States
   const [notifyVendorOpen, setNotifyVendorOpen] = useState(false);
   const [notifyCustomerOpen, setNotifyCustomerOpen] = useState(false);
   const [assignCourierOpen, setAssignCourierOpen] = useState(false);
@@ -254,268 +180,109 @@ export default function OrdersPage() {
   );
   const [courierSearch, setCourierSearch] = useState("");
 
-  // Cancel Order Modal State
-  const [cancelOrderOpen, setCancelOrderOpen] = useState(false);
-  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelPassword, setCancelPassword] = useState("");
-  const [cancelPasswordError, setCancelPasswordError] = useState<string | null>(
-    null,
-  );
-  const [showCancelPassword, setShowCancelPassword] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-
-  // Fetch orders from API
-  const fetchOrders = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Build query params
-      const params = new URLSearchParams();
-      params.set("page", currentPage.toString());
-      params.set("limit", itemsPerPage.toString());
-
-      if (dateRange) {
-        params.set("range", dateRange);
-      }
-
-      if (startDate && endDate) {
-        params.set("startDate", startDate.toISOString());
-        params.set("endDate", endDate.toISOString());
-      }
-
-      if (paymentStatus !== "all") {
-        params.set("paymentStatus", paymentStatus);
-      }
-
-      if (amountQuery) {
-        const amount = parseFloat(amountQuery);
-        if (!isNaN(amount)) {
-          params.set("amount", amount.toString());
-        }
-      }
-
-      const res = await authenticatedFetch(
-        `/admin/orders?${params.toString()}`,
-      );
-      const apiRes = await parseApiResponse(res);
-
-      if (!apiRes?.success) {
-        setError(apiRes?.message || "Failed to fetch orders");
-        return;
-      }
-
-      setOrdersData(apiRes);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch orders");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    currentPage,
-    itemsPerPage,
-    dateRange,
-    startDate,
-    endDate,
-    paymentStatus,
-    amountQuery,
-  ]);
-
-  // Fetch on mount and when filters change
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery, dateRange]);
-
-  // Convert API orders to UI format
-  const allOrders: Order[] = useMemo(() => {
-    if (!ordersData?.data?.groups) return [];
-
-    const orders: Order[] = [];
-    for (const group of ordersData.data.groups) {
-      for (const apiOrder of group.orders) {
-        orders.push({
-          id: apiOrder.orderCode,
-          orderId: apiOrder.orderId,
-          date: new Date(apiOrder.createdAt).toLocaleString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "numeric",
-            hour12: true,
-          }),
-          customer: apiOrder.customerName,
-          vendor: apiOrder.businessName,
-          status:
-            statusKeyToLabel[apiOrder.status.key] || apiOrder.status.label,
-          amount: `₦${apiOrder.totalAmount.toLocaleString("en-NG")}`,
-          paymentStatus: apiOrder.paymentStatus?.key || "unknown",
-          products: apiOrder.items.map((item) => ({
-            name: item.name,
-            qty: item.quantity,
-            price: `₦${item.totalPrice.toLocaleString("en-NG")}`,
-            category: "",
-            image: item.imageUrl,
-          })),
-        });
-      }
-    }
-    return orders;
-  }, [ordersData]);
-
-  // Build dynamic tabs from API response
-  const tabs = useMemo(() => {
-    if (!ordersData?.data?.groups) {
-      return [{ label: "All", key: "all", count: 0 }];
-    }
-
-    const groups = ordersData.data.groups;
-    const total = groups.reduce((sum, g) => sum + g.total, 0);
-
-    // Build tabs from API groups - only show statuses that have orders
-    const apiTabs = groups
-      .filter((g) => g.total > 0)
-      .map((g) => ({
-        label: g.status.label,
-        key: g.status.key,
-        count: g.total,
-      }));
-
-    // Always show "All" first
-    return [{ label: "All", key: "all", count: total }, ...apiTabs];
-  }, [ordersData]);
-
-  // Map tab label to status key for filtering
-  const labelToStatusKey: Record<string, string> = useMemo(() => {
-    const map: Record<string, string> = { All: "all" };
-    for (const tab of tabs) {
-      map[tab.label] = tab.key;
-    }
-    return map;
-  }, [tabs]);
-
-  useEffect(() => {
-    setActiveTab("All");
-    setCurrentPage(1);
-  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery, dateRange]);
-
-  // Apply search and tab filter client-side
-  const filteredOrders = useMemo(() => {
-    if (!allOrders.length) return [];
-
-    let result = allOrders;
-
-    // Filter by active tab
-    if (activeTab !== "All") {
-      const targetStatusKey = labelToStatusKey[activeTab];
-      if (targetStatusKey) {
-        result = result.filter((order) => {
-          const orderStatusKey = Object.entries(statusKeyToLabel).find(
-            ([, label]) => label === order.status,
-          )?.[0];
-          return orderStatusKey === targetStatusKey;
-        });
-      }
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter((order) =>
-        [
-          order.id,
-          order.customer,
-          order.vendor,
-          order.status,
-          order.amount,
-        ].some((field) => field.toLowerCase().includes(query)),
-      );
-    }
-
-    return result;
-  }, [allOrders, searchQuery, activeTab, labelToStatusKey]);
-
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const displayedOrders = filteredOrders.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
-
   const gridLayout = "grid grid-cols-[160px_1fr_1fr_1fr_150px_130px_60px]";
 
-  // Status color mapping
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Payment expired":
-        return "bg-red-100 text-red-700";
-      case "Out for delivery":
-        return "bg-blue-100 text-blue-700";
-      case "Delivered":
-        return "bg-green-100 text-green-700";
-      case "Cancelled":
-        return "bg-gray-100 text-gray-700";
-      case "Rejected":
-        return "bg-orange-100 text-orange-700";
-      case "Pending payment":
-        return "bg-yellow-100 text-yellow-700";
-      case "Awaiting confirmation":
-        return "bg-purple-100 text-purple-700";
-      case "Preparing":
-        return "bg-indigo-100 text-indigo-700";
-      case "Ready for pickup":
-        return "bg-pink-100 text-pink-700";
-      case "Returned":
-        return "bg-amber-100 text-amber-700";
-      default:
-        return "bg-[#FDB022] text-white";
-    }
-  };
-
-  // Mock couriers for now - would come from API
-  const couriers = [
+  // Courier mock data (same as reference)
+  const couriers: Courier[] = [
     {
       id: "c1",
       name: "Ayodele Muhammed",
-      locations: "Agege / Ogba / Abulegba",
-      status: "available" as const,
+      locations: "Agege / Ogba / Abulegba / Iyanapaja",
+      status: "available",
       assignments: 0,
     },
     {
       id: "c2",
       name: "Chukwudi Okeke",
-      locations: "Ikeja / Alausa / Ojodu",
-      status: "available" as const,
+      locations: "Ikeja / Alausa / Ojodu / Berger",
+      status: "available",
       assignments: 0,
     },
     {
       id: "c3",
       name: "Fatima Ibrahim",
-      locations: "Surulere / Yaba / Ebute Metta",
-      status: "busy" as const,
+      locations: "Surulere / Yaba / Ebute Metta / Apapa",
+      status: "busy",
       assignments: 2,
     },
     {
       id: "c4",
       name: "Emeka Nwosu",
-      locations: "Lekki Phase 1 / Phase 2",
-      status: "available" as const,
+      locations: "Lekki Phase 1 / Phase 2 / Ikate / Admiralty Way",
+      status: "available",
       assignments: 0,
     },
     {
       id: "c5",
       name: "Aisha Bello",
-      locations: "Victoria Island / Ikoyi",
-      status: "available" as const,
+      locations: "Victoria Island / Ikoyi / Banana Island",
+      status: "available",
       assignments: 1,
     },
   ];
+
+  // 1. Filter Logic for Search/Amount/Dates (Affects Badge Counts)
+  const baseFilteredData = useMemo(() => {
+    let data = getFilteredData(MOCK_ORDERS, searchQuery);
+
+    if (paymentStatus !== "all") {
+      data = data.filter((o) => o.paymentStatus === paymentStatus);
+    }
+
+    if (amountQuery) {
+      const minAmount = Number(amountQuery);
+      if (!isNaN(minAmount)) {
+        data = data.filter((o) => {
+          const val = Number(o.amount.replace(/[^\d]/g, ""));
+          return val >= minAmount;
+        });
+      }
+    }
+
+    if (startDate || endDate) {
+      data = data.filter((order) => {
+        const orderDate = new Date(order.date);
+        if (startDate && orderDate < startDate) return false;
+        if (endDate && orderDate > endDate) return false;
+        return true;
+      });
+    }
+
+    return data;
+  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery]);
+
+  // 2. Reactive Badge Counts
+  const counts = useMemo(
+    () => ({
+      All: baseFilteredData.length,
+      "Awaiting confirmation": baseFilteredData.filter(
+        (o) => o.status === "Awaiting confirmation",
+      ).length,
+      "Awaiting Pickup": baseFilteredData.filter(
+        (o) => o.status === "Awaiting Pickup",
+      ).length,
+      "Out for Delivery": baseFilteredData.filter(
+        (o) => o.status === "Out for Delivery",
+      ).length,
+      Delivered: baseFilteredData.filter((o) => o.status === "Delivered")
+        .length,
+      Cancelled: baseFilteredData.filter((o) => o.status === "Cancelled")
+        .length,
+    }),
+    [baseFilteredData],
+  );
+
+  // 3. Final Table Data (filtered by Status Tab)
+  const tableData = useMemo(() => {
+    if (statusFilter === "All") return baseFilteredData;
+    return baseFilteredData.filter((item) => item.status === statusFilter);
+  }, [baseFilteredData, statusFilter]);
+
+  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+  const displayedOrders = tableData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   const filteredCouriers = useMemo(() => {
     let list = couriers;
@@ -533,282 +300,300 @@ export default function OrdersPage() {
     return list;
   }, [courierTab, courierSearch]);
 
-  const handleCancelOrderClick = (orderId: string, orderDbId: string) => {
-    setCancelOrderId(orderDbId);
-    setCancelReason("");
-    setCancelPassword("");
-    setCancelOrderOpen(true);
-  };
-
-  const handleBulkCancelOrderClick = () => {
-    if (selectedOrders.length === 1) {
-      // Find the order's orderId
-      const order = allOrders.find((o) => o.id === selectedOrders[0]);
-      if (order) {
-        handleCancelOrderClick(order.id, order.orderId);
-      }
-    } else if (selectedOrders.length > 1) {
-      toast.error(
-        "Bulk cancellation is not supported. Please cancel one order at a time.",
-      );
-    }
-  };
-
-  const submitCancelOrder = async () => {
-    // Client-side validation
-    setCancelPasswordError(null);
-
-    if (!cancelOrderId) {
-      toast.error("No order selected");
-      return;
-    }
-
-    if (!cancelReason.trim()) {
-      toast.error("Please provide a reason for cancellation");
-      return;
-    }
-
-    if (!cancelPassword.trim()) {
-      setCancelPasswordError("Password is required");
-      return;
-    }
-
-    // Password validation (same as login)
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
-    if (!passwordRegex.test(cancelPassword)) {
-      setCancelPasswordError(
-        "Password must be at least 8 characters with uppercase, lowercase, number, and special character",
-      );
-      return;
-    }
-
-    setIsCancelling(true);
-
-    try {
-      // Use direct fetch instead of authenticatedFetch to handle 401 properly
-      // (401 here means wrong password, not token expiration)
-      const token =
-        typeof window !== "undefined"
-          ? JSON.parse(localStorage.getItem("accessToken") || "{}").value
-          : null;
-
-      const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || "";
-      const API_KEY = process.env.NEXT_PUBLIC_MUNCHSPACE_API_KEY || "";
-
-      const response = await fetch(
-        `${API_BASE}/admin/orders/${cancelOrderId}/cancel`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY,
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            reason: cancelReason.trim(),
-            password: cancelPassword.trim(),
-          }),
-        },
-      );
-
-      const result = await parseApiResponse(response);
-
-      // Handle 401 Unauthorized - incorrect password
-      if (response.status === 401) {
-        setCancelPasswordError("Incorrect password");
-        setIsCancelling(false);
-        return;
-      }
-
-      if (result?.success) {
-        toast.success("Order cancelled successfully");
-        setCancelOrderOpen(false);
-        setCancelOrderId(null);
-        setCancelReason("");
-        setCancelPassword("");
-        setCancelPasswordError(null);
-
-        // Clear selection if the cancelled order was selected
-        setSelectedOrders((prev) => prev.filter((id) => id !== cancelOrderId));
-
-        // Refresh orders list
-        fetchOrders();
-      } else {
-        // Show the error message from the API response
-        const errorMessage =
-          result?.error || result?.message || "Failed to cancel order";
-        toast.error(errorMessage);
-      }
-    } catch (err) {
-      toast.error("An error occurred while cancelling the order");
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
-
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-      return pages;
-    }
-
-    pages.push(1);
-
-    if (currentPage > 3) pages.push("...");
-
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-
-    if (currentPage < totalPages - 2) pages.push("...");
-
-    if (totalPages > 1) pages.push(totalPages);
-
-    return pages;
+  const handleCancelOrder = (ids: string[]) => {
+    toast.promise(new Promise((resolve) => setTimeout(resolve, 1200)), {
+      loading: `Cancelling ${ids.length} order${ids.length !== 1 ? "s" : ""}...`,
+      success: "Order(s) cancelled successfully",
+      error: "Failed to cancel order",
+    });
+    // In real app → update state / call API
+    setSelectedOrders((prev) => prev.filter((id) => !ids.includes(id)));
   };
 
   return (
-    <div className="p-8 bg-[#F9FAFB] min-h-screen overflow-auto">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Loading...
-              </span>
-            ) : error ? (
-              <span className="text-red-500">{error}</span>
-            ) : (
-              `Total (${ordersData?.data?.total || filteredOrders.length})`
-            )}
-          </h1>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="border border-gray-200 bg-white rounded-md"
-              onClick={() => fetchOrders()}
-              disabled={isLoading}
-            >
-              <RotateCcw
-                size={18}
-                className={isLoading ? "animate-spin" : ""}
-              />
-            </Button>
-            <Select
-              value={dateRange || "all"}
-              onValueChange={(val) => {
-                setDateRange(val === "all" ? "" : val);
-                setStartDate(undefined);
-                setEndDate(undefined);
-              }}
-            >
-              <SelectTrigger className="w-[180px] gap-2 border-gray-200 text-gray-700 rounded-md font-normal h-10">
-                <CalendarIcon size={18} className="text-gray-400" />
-                <SelectValue placeholder="Last 30 days" />
+    <div className="space-y-8">
+      {/* 1. STATS SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Total Orders"
+          value={counts.All.toLocaleString()}
+          trend="0.35%"
+        />
+        <StatCard
+          title="Pending Orders"
+          value={counts["Awaiting confirmation"]}
+          trend="0.35%"
+        />
+        <StatCard
+          title="Total Delivered"
+          value={counts.Delivered}
+          trend="0.35%"
+        />
+        <StatCard
+          title="Total Cancelled"
+          value={counts.Cancelled}
+          trend="0.35%"
+          trendType="down"
+        />
+      </div>
+
+      {/* 2. CHARTS SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="col-span-2 border p-0 py-4 shadow-none gap-0 space-y-0 rounded-md">
+          <div className="px-9 flex justify-between items-center uppercase border-b pb-3">
+            <div className="flex items-center gap-2">
+              <h1 className="font-semibold">Average Order Value (AOV)</h1>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info size={15} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="py-1.5">
+                    Average Order Value (AOV) represents the average <br />{" "}
+                    amount spent each time a customer places an order.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Select defaultValue="delivered">
+              <SelectTrigger className="w-fit h-10 rounded shadow-none">
+                <SelectValue defaultValue="delivered" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All time</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="yesterday">Yesterday</SelectItem>
-                <SelectItem value="last_7_days">Last 7 days</SelectItem>
-                <SelectItem value="last_week">Last week</SelectItem>
-                <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="out for delivery">
+                  Out for Delivery
+                </SelectItem>
+                <SelectItem value="awaiting pickup">Awaiting Pickup</SelectItem>
+                <SelectItem value="awaiting confirmation">
+                  Awaiting Confirmation
+                </SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="border border-gray-200 rounded-md p-6 shadow-sm space-y-6 bg-white">
-          {/* Search + Filter Bar */}
-          <div className="flex items-center justify-between">
-            <div className="relative w-full max-w-md">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={18}
-              />
-              <Input
-                placeholder="Search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10"
-              />
+          <div className="border-b border-gray-200 py-2 flex items-center justify-center gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-green-400"></span> This
+              month
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" /> Download
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-purple-500"></span> Last
+              month
+            </div>
+          </div>
+          <CardContent className="p-0 pt-6 pe-10">
+            <ResponsiveContainer height={250}>
+              <LineChart data={dailyData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#F1F3F5"
+                />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "#94A3B8" }}
+                />
+                <RechartsTooltip />
+                <Line
+                  type="monotone"
+                  dataKey="thisMonth"
+                  stroke="#00C950"
+                  strokeWidth={2.5}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="lastMonth"
+                  stroke="#7C3AED"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Pie Chart Section */}
+        <Card className="bg-white border shadow-none gap-0 space-y-0 p-0 py-4 rounded-md overflow-hidden flex flex-col h-full">
+          <div className="px-9 flex justify-between items-center uppercase border-b pb-3">
+            <div className="flex items-center gap-2 py-1.5">
+              <h1 className="font-semibold">order completion rate (OCR)</h1>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info size={15} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="py-1.5">
+                    Order completion rate (OCR) is the percentage
+                    <br /> of orders that were successfully completed
+                    <br /> out of the total number of orders placed.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+
+          <CardContent className="flex-1 flex flex-col items-center p-0 py-6">
+            <div className="relative w-full h-[190px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={completionData.filter(
+                      (item) =>
+                        item.name === "Completed" || item.name === "Pending",
+                    )}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={85}
+                    dataKey="value"
+                    stroke="#fff"
+                    strokeWidth={4}
+                    labelLine={false}
+                    label={({
+                      cx,
+                      cy,
+                      midAngle,
+                      innerRadius,
+                      outerRadius,
+                      value,
+                    }) => {
+                      const radius =
+                        innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x =
+                        cx + radius * Math.cos(-midAngle! * (Math.PI / 180));
+                      const y =
+                        cy + radius * Math.sin(-midAngle! * (Math.PI / 180));
+                      return (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="white"
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          className="text-lg font-semibold"
+                        >
+                          {`${value}%`}
+                        </text>
+                      );
+                    }}
+                  >
+                    {completionData
+                      .filter(
+                        (item) =>
+                          item.name === "Completed" || item.name === "Pending",
+                      )
+                      .map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="w-full mt-8 flex justify-center relative">
+              {completionData
+                .filter(
+                  (item) =>
+                    item.name === "Completed" || item.name === "Pending",
+                )
+                .map((item) => (
+                  <div
+                    key={item.name}
+                    className={cn(
+                      "flex flex-col items-start border-r px-3 last:border-none",
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-sm">
+                        {item.name === "Completed"
+                          ? "Completed Orders"
+                          : "Incomplete Orders"}
+                      </span>
+                    </div>
+                    <span className="text-lg font-semibold text-gray-900">
+                      {item.value}%
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 3. TABLE CARD */}
+      <Card className="border-none shadow-sm rounded-md overflow-hidden bg-white">
+        <CardHeader className="border-b py-6 px-4 space-y-6">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold">
+              Orders ({tableData.length})
+            </CardTitle>
+            <div className="flex gap-2">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search orders..."
+                  className="pl-9 h-10 border-gray-200"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Button variant="outline" className="h-10 border-gray-200">
+                <Download size={18} />
               </Button>
               <Button
                 variant={isFilterOpen ? "default" : "outline"}
+                className={cn(
+                  "h-10 border-gray-200",
+                  isFilterOpen && "bg-orange-500 hover:bg-orange-600",
+                )}
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
               >
-                <Filter className="mr-2 h-4 w-4" />
-                Filter {isFilterOpen && <X className="ml-2 h-4 w-4" />}
+                <Filter size={18} />
               </Button>
             </div>
           </div>
 
-          {/* Filters */}
           {isFilterOpen && (
             <div className="border-b pb-6 space-y-4">
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex items-center gap-2 px-3 h-10 bg-gray-50 border rounded-md text-sm text-gray-600">
                   <Filter size={16} /> Filter
                 </div>
-
-                <Select
-                  value={dateRange || "all"}
-                  onValueChange={(val) => {
-                    setDateRange(val === "all" ? "" : val);
-                    setStartDate(undefined);
-                    setEndDate(undefined);
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Date range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="yesterday">Yesterday</SelectItem>
-                    <SelectItem value="last_7_days">Last 7 days</SelectItem>
-                    <SelectItem value="last_week">Last week</SelectItem>
-                    <SelectItem value="last_30_days">Last 30 days</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select value={paymentStatus} onValueChange={setPaymentStatus}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Payment status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="INITIATED">Initiated</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="SUCCESS">Success</SelectItem>
-                    <SelectItem value="FAILED">Failed</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    <SelectItem value="REFUNDED">Refunded</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
                   </SelectContent>
                 </Select>
-
                 <Input
-                  placeholder="Amount (₦)"
+                  placeholder="Min Amount (₦)"
                   value={amountQuery}
                   onChange={(e) => setAmountQuery(e.target.value)}
                   className="w-[180px]"
                 />
-
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-[200px] justify-start"
+                      className="w-[200px] justify-start text-left font-normal"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {startDate
@@ -825,12 +610,11 @@ export default function OrdersPage() {
                     />
                   </PopoverContent>
                 </Popover>
-
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-[200px] justify-start"
+                      className="w-[200px] justify-start text-left font-normal"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {endDate ? format(endDate, "dd/MM/yyyy") : "End date"}
@@ -840,21 +624,15 @@ export default function OrdersPage() {
                     <Calendar
                       mode="single"
                       selected={endDate}
-                      onSelect={(date) => {
-                        if (startDate && date && date < startDate) {
-                          toast.error("End date cannot be before start date");
-                          return;
-                        }
-                        setEndDate(date);
-                      }}
-                      initialFocus
-                      disabled={(date) =>
-                        startDate ? date < startDate : false
+                      onSelect={(d) =>
+                        d && startDate && d < startDate
+                          ? toast.error("Invalid date")
+                          : setEndDate(d)
                       }
+                      initialFocus
                     />
                   </PopoverContent>
                 </Popover>
-
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -863,7 +641,6 @@ export default function OrdersPage() {
                     setStartDate(undefined);
                     setEndDate(undefined);
                     setAmountQuery("");
-                    setDateRange("");
                   }}
                 >
                   <Trash2 className="mr-2 h-4 w-4" /> Clear
@@ -872,26 +649,30 @@ export default function OrdersPage() {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="flex gap-6 border-b overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.label}
-                onClick={() => setActiveTab(tab.label)}
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(counts).map(([label, count]) => (
+              <Badge
+                key={label}
+                onClick={() => {
+                  setStatusFilter(label);
+                  setCurrentPage(1);
+                }}
                 className={cn(
-                  "pb-3 text-sm font-medium relative whitespace-nowrap",
-                  activeTab === tab.label
-                    ? "text-[#E86B35] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#E86B35]"
-                    : "text-gray-500 hover:text-gray-700",
+                  "cursor-pointer px-3 py-1.5 rounded-md font-medium text-xs transition-colors border-none shadow-none",
+                  statusFilter === label
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200",
                 )}
               >
-                {tab.label} ({tab.count})
-              </button>
+                {label} {count}
+              </Badge>
             ))}
           </div>
+        </CardHeader>
 
-          {/* Bulk Actions */}
-          <div className="flex items-center gap-3 flex-wrap">
+        <CardContent className="p-0">
+          {/* Bulk Actions Bar */}
+          <div className="flex items-center gap-3 flex-wrap px-6 py-4 border-b bg-white">
             <span className="text-sm">
               Selected: <strong>{selectedOrders.length}</strong>
             </span>
@@ -938,48 +719,48 @@ export default function OrdersPage() {
               size="sm"
               className="text-red-400 border-gray-100"
               disabled={!selectedOrders.length}
-              onClick={handleBulkCancelOrderClick}
+              onClick={() => handleCancelOrder(selectedOrders)}
             >
               Cancel Order
             </Button>
           </div>
 
-          {/* Table Header */}
-          <div className="space-y-0 border border-gray-200 rounded-md overflow-hidden">
-            <div
-              className={cn(
-                gridLayout,
-                "bg-[#F9FAFB] text-gray-900 border-b border-gray-200 text-sm font-medium",
-              )}
-            >
-              <div className="flex items-center gap-3 border-r border-gray-200 py-3 pl-4">
-                <Checkbox
-                  className="rounded-sm"
-                  onCheckedChange={(checked) =>
-                    setSelectedOrders(
-                      checked ? displayedOrders.map((o) => o.id) : [],
-                    )
-                  }
-                />
-                Order ID
-              </div>
-              <div className="py-3 pl-4 border-r border-gray-200">
-                Date Created
-              </div>
-              <div className="py-3 pl-4 border-r border-gray-200">
-                Customer Name
-              </div>
-              <div className="py-3 pl-4 border-r border-gray-200">
-                Vendor Name
-              </div>
-              <div className="py-3 pl-4 border-r border-gray-200">Status</div>
-              <div className="py-3 pl-4 border-r border-gray-200">
-                Total Amount
-              </div>
-              <div className="flex justify-center items-center py-3">-</div>
+          {/* HEADER ROW */}
+          <div
+            className={cn(
+              gridLayout,
+              "bg-[#F9FAFB] text-gray-900 border-b border-gray-200 text-sm font-medium",
+            )}
+          >
+            <div className="flex items-center gap-3 border-r border-gray-200 py-3 pl-4">
+              <Checkbox
+                className="rounded-sm"
+                onCheckedChange={(checked) =>
+                  setSelectedOrders(
+                    checked ? displayedOrders.map((o) => o.id) : [],
+                  )
+                }
+              />
+              Order ID
             </div>
+            <div className="py-3 pl-4 border-r border-gray-200">
+              Date Created
+            </div>
+            <div className="py-3 pl-4 border-r border-gray-200">
+              Customer Name
+            </div>
+            <div className="py-3 pl-4 border-r border-gray-200">
+              Vendor Name
+            </div>
+            <div className="py-3 pl-4 border-r border-gray-200">Status</div>
+            <div className="py-3 pl-4 border-r border-gray-200">
+              Total Amount
+            </div>
+            <div className="flex justify-center items-center py-3">-</div>
+          </div>
 
-            {/* Table Rows */}
+          {/* ROWS */}
+          <div className="divide-y divide-gray-100">
             {displayedOrders.map((order) => {
               const isExpanded = expandedRows.includes(order.id);
               return (
@@ -1016,12 +797,7 @@ export default function OrdersPage() {
                       {order.vendor}
                     </div>
                     <div className="flex items-center border-r border-gray-100 px-4">
-                      <span
-                        className={cn(
-                          "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap w-full text-center",
-                          getStatusColor(order.status),
-                        )}
-                      >
+                      <span className="bg-[#FDB022] text-white px-2 py-1 rounded-[4px] text-[11px] font-medium whitespace-nowrap w-full text-center">
                         {order.status.slice(0, 14) +
                           (order.status.length > 14 ? "..." : "")}
                       </span>
@@ -1084,9 +860,7 @@ export default function OrdersPage() {
                           <div className="h-px bg-gray-100 my-1" />
                           <DropdownMenuItem
                             className="gap-2 py-2.5 text-red-500"
-                            onClick={() =>
-                              handleCancelOrderClick(order.id, order.orderId)
-                            }
+                            onClick={() => handleCancelOrder([order.id])}
                           >
                             <Ban size={16} /> Cancel Order
                           </DropdownMenuItem>
@@ -1133,20 +907,17 @@ export default function OrdersPage() {
 
                       {isExpanded && (
                         <div className="mt-6 space-y-8 pb-6 animate-in fade-in slide-in-from-top-1 duration-200">
-                          {order.products.map((p, idx) => (
+                          {order.products.map((p:any, idx:any) => (
                             <div
                               key={idx}
                               className="flex items-start justify-between max-w-4xl mx-auto px-10"
                             >
                               <div className="flex gap-4">
                                 <div className="h-14 w-14 rounded-md overflow-hidden border border-gray-200 flex-shrink-0">
-                                  <Image
+                                  <img
                                     src={p.image}
                                     alt={p.name}
-                                    width={300}
-                                    height={250}
                                     className="h-full w-full object-cover"
-                                    priority
                                   />
                                 </div>
                                 <div className="space-y-1">
@@ -1178,11 +949,11 @@ export default function OrdersPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-center gap-6 text-sm border-t pt-6">
+          <div className="flex items-center justify-center gap-6 text-sm border-t pt-6 pb-6 bg-white">
             <p className="text-gray-500">
               Total{" "}
               <span className="text-gray-900 font-medium">
-                {filteredOrders.length} items
+                {tableData.length} items
               </span>
             </p>
 
@@ -1198,7 +969,7 @@ export default function OrdersPage() {
               </Button>
 
               <div className="flex items-center gap-1">
-                {getPageNumbers().map((page, i) => (
+                {getPageNumbers(currentPage, totalPages).map((page, i) => (
                   <Button
                     key={i}
                     variant={currentPage === page ? "default" : "ghost"}
@@ -1251,8 +1022,8 @@ export default function OrdersPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Notify Vendor Modal */}
       <CustomModal
@@ -1293,7 +1064,7 @@ export default function OrdersPage() {
               Send a WhatsApp notification message to:{" "}
               <span className="font-medium">
                 {selectedOrderForAction
-                  ? allOrders.find((o) => o.id === selectedOrderForAction)
+                  ? MOCK_ORDERS.find((o) => o.id === selectedOrderForAction)
                       ?.vendor
                   : "Selected vendors"}
               </span>
@@ -1430,15 +1201,7 @@ export default function OrdersPage() {
       <CustomModal
         isOpen={assignCourierOpen}
         onClose={() => setAssignCourierOpen(false)}
-        title={
-          selectedOrderForAction
-            ? allOrders
-                .find((o) => o.id === selectedOrderForAction)
-                ?.status.includes("delivery")
-              ? "Assign Couriers for Order Delivery"
-              : "Assign Couriers for Order Pick-Up"
-            : "Assign Couriers"
-        }
+        title="Assign Couriers"
         maxWidth="sm:max-w-[680px]"
         footer={
           <>
@@ -1467,7 +1230,7 @@ export default function OrdersPage() {
             </p>
             <p className="text-sm text-gray-600">
               {selectedOrderForAction
-                ? allOrders.find((o) => o.id === selectedOrderForAction)
+                ? MOCK_ORDERS.find((o) => o.id === selectedOrderForAction)
                     ?.shippingAddress
                 : "No order selected"}
             </p>
@@ -1552,119 +1315,6 @@ export default function OrdersPage() {
           </div>
         </div>
       </CustomModal>
-
-      {/* Cancel Order Confirmation Modal */}
-      <CustomModal
-        isOpen={cancelOrderOpen}
-        onClose={() => {
-          if (!isCancelling) {
-            setCancelOrderOpen(false);
-            setCancelOrderId(null);
-            setCancelReason("");
-            setCancelPassword("");
-            setCancelPasswordError(null);
-          }
-        }}
-        title="Cancel Order"
-        maxWidth="sm:max-w-[480px]"
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCancelOrderOpen(false);
-                setCancelOrderId(null);
-                setCancelReason("");
-                setCancelPassword("");
-              }}
-              disabled={isCancelling}
-            >
-              Close
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={submitCancelOrder}
-              disabled={
-                isCancelling || !cancelReason.trim() || !cancelPassword.trim()
-              }
-            >
-              {isCancelling ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cancelling...
-                </>
-              ) : (
-                "Confirm Cancel"
-              )}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-6">
-          <div>
-            <p className="text-sm text-gray-700 mb-4">
-              You are about to cancel order{" "}
-              <span className="font-medium">{cancelOrderId}</span>.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Reason for cancellation
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Enter the reason for cancelling this order..."
-                  rows={4}
-                  className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
-                  disabled={isCancelling}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Enter your password to confirm
-                </label>
-                <div className="relative">
-                  <Input
-                    type={showCancelPassword ? "text" : "password"}
-                    value={cancelPassword}
-                    onChange={(e) => {
-                      setCancelPassword(e.target.value);
-                      if (cancelPasswordError) setCancelPasswordError(null);
-                    }}
-                    placeholder="Your account password"
-                    className={cn(
-                      "h-11 pr-10",
-                      cancelPasswordError &&
-                        "border-red-500 focus:ring-red-500",
-                    )}
-                    disabled={isCancelling}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCancelPassword(!showCancelPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    disabled={isCancelling}
-                  >
-                    {showCancelPassword ? (
-                      <EyeOff size={18} />
-                    ) : (
-                      <Eye size={18} />
-                    )}
-                  </button>
-                </div>
-                {cancelPasswordError && (
-                  <p className="text-sm text-red-500 mt-1">
-                    {cancelPasswordError}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </CustomModal>
     </div>
   );
-}
+};

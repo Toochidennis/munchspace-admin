@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 // --- DATA ---
-interface Vendor {
+interface Rider {
   id: string;
   name: string;
   regDate: string;
@@ -54,7 +54,7 @@ interface Vendor {
   flagged: boolean;
 }
 
-const VENDOR_DATA: Vendor[] = [
+const VENDOR_DATA: Rider[] = [
   {
     id: "1001",
     name: "Sabr collection",
@@ -97,7 +97,7 @@ const VENDOR_DATA: Vendor[] = [
   },
   ...Array.from({ length: 40 }).map((_, i) => ({
     id: `50${i}`,
-    name: `Vendor ${i + 5}`,
+    name: `Rider ${i + 5}`,
     regDate: "Thu Jan 01 2026",
     itemsListed: 10,
     status: "APPROVED" as const,
@@ -300,7 +300,7 @@ export default function VendorsPage() {
               variant="outline"
               className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md"
             >
-              Mark Vendor As...
+              Mark Rider As...
             </Button>
             <Button
               disabled={selectedVendors.length === 0}
@@ -308,14 +308,14 @@ export default function VendorsPage() {
               className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md"
               onClick={() => setShowNotifyModal(true)}
             >
-              Notify Vendor...
+              Notify Rider...
             </Button>
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
               className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md"
             >
-              Deactivate Vendor
+              Deactivate Rider
             </Button>
           </div>
 
@@ -338,10 +338,10 @@ export default function VendorsPage() {
                     />
                   </th>
                   <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Vendor ID
+                    Rider ID
                   </th>
                   <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Vendor Name
+                    Rider Name
                   </th>
                   <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
                     Reg Date
@@ -356,52 +356,52 @@ export default function VendorsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {paginatedData.map((vendor) => (
+                {paginatedData.map((rider) => (
                   <tr
-                    key={vendor.id}
+                    key={rider.id}
                     className="hover:bg-gray-50/50 transition-colors"
                   >
                     <td className="p-4">
                       <Checkbox
-                        checked={selectedVendors.includes(vendor.id)}
+                        checked={selectedVendors.includes(rider.id)}
                         onCheckedChange={() =>
                           setSelectedVendors((prev) =>
-                            prev.includes(vendor.id)
-                              ? prev.filter((i) => i !== vendor.id)
-                              : [...prev, vendor.id],
+                            prev.includes(rider.id)
+                              ? prev.filter((i) => i !== rider.id)
+                              : [...prev, rider.id],
                           )
                         }
                         className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                       />
                     </td>
                     <td className="p-4 font-semibold text-gray-900">
-                      #{vendor.id}
+                      #{rider.id}
                     </td>
                     <td className="p-4 text-gray-600 font-medium">
-                      {vendor.name}
+                      {rider.name}
                     </td>
-                    <td className="p-4 text-gray-500">{vendor.regDate}</td>
+                    <td className="p-4 text-gray-500">{rider.regDate}</td>
                     <td className="p-4 text-gray-600 font-medium">
-                      {vendor.itemsListed}
+                      {rider.itemsListed}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <span
                           className={cn(
                             "px-2.5 py-1 rounded text-[12px] uppercase text-white",
-                            vendor.status === "APPROVED" &&
+                            rider.status === "APPROVED" &&
                               "bg-green-500",
-                            vendor.status === "PENDING VERIFICATION" &&
+                            rider.status === "PENDING VERIFICATION" &&
                               "bg-yellow-500",
-                            vendor.status === "REJECTED" &&
+                            rider.status === "REJECTED" &&
                               "bg-red-500",
-                            vendor.status === "DEACTIVATED" &&
+                            rider.status === "DEACTIVATED" &&
                               "bg-gray-500",
                           )}
                         >
-                          {vendor.status}
+                          {rider.status}
                         </span>
-                        {vendor.flagged && (
+                        {rider.flagged && (
                           <Flag
                             size={14}
                             className="text-red-500 fill-red-500"
@@ -427,7 +427,7 @@ export default function VendorsPage() {
                           <DropdownMenuItem
                             className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
                             onClick={() =>
-                              router.push(`/admin/vendors/${vendor.id}`)
+                              router.push(`/admin/vendors/${rider.id}`)
                             }
                           >
                             <Eye size={16} className="text-gray-400" /> View
@@ -435,17 +435,17 @@ export default function VendorsPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50">
                             <UserCheck size={16} className="text-gray-400" />{" "}
-                            Mark Vendor as...
+                            Mark Rider as...
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50"
                             onClick={() => setShowNotifyModal(true)}
                           >
                             <Mail size={16} className="text-gray-400" /> Notify
-                            Vendor...
+                            Rider...
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50">
-                            <Ban size={16} /> Deactivate Vendor
+                            <Ban size={16} /> Deactivate Rider
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -526,7 +526,7 @@ export default function VendorsPage() {
       <CustomDialog
         isOpen={showNotifyModal}
         onClose={() => setShowNotifyModal(false)}
-        title="Notify Vendor..."
+        title="Notify Rider..."
       >
         <div className="p-6 space-y-6">
           <p className="text-sm text-gray-600">
