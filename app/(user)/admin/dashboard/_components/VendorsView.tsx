@@ -285,7 +285,7 @@ export const VendorsView = () => {
                   radius={[15, 15, 0, 0]}
                   barSize={39}
                   // Adds the gray background track behind each bar
-                  background={{ fill: "#edeef0", radius: [15, 15, 0, 0] }}
+                  background={{ fill: "#edeef0", radius: [15, 15, 0, 0] } as any}
                 />
               </BarChart>
             </ResponsiveContainer>
