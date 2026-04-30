@@ -111,7 +111,7 @@ function CustomModal({
   );
 }
 
-const colorMap = {
+const colorMap: Record<string, string> = {
   "green-500": "#22C55E",
   "blue-400": "#3B82F6",
   "yellow-500": "#EAB308",
