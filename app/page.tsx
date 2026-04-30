@@ -1,23 +1,32 @@
-import Link from 'next/link';
-import React from 'react'
+"use client";
 
-const Homepage = () => {
-  return (
-    <div>
-      <h1>Welcome to munchspace admin</h1>
-      <p>Pages</p>
-      <div className="flex flex-col text-blue-500 underline">
-        <Link href={"/login"}>Login</Link>
-        <Link href={"/reset-password"}>Reset Password</Link>
-        <Link href={"/forgot-password"}>Forgot Password</Link>
-        <Link href={"/admin/settings"}>Settings</Link>
-        <Link href={"/admin/orders"}>Orders</Link>
-        <Link href={"/admin/vendors"}>Vendors</Link>
-        <Link href={"/admin/customers"}>Customers</Link>
-        <Link href={"/admin/dashboard"}>Dashboard</Link>
-      </div>
-    </div>
-  );
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Homepage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    let isLoggedIn = false;
+
+    if (token) {
+      try {
+        const item = JSON.parse(token);
+        if (item.value && Date.now() < item.expiry) {
+          isLoggedIn = true;
+        }
+      } catch {
+        // Invalid token
+      }
+    }
+
+    if (isLoggedIn) {
+      router.replace("/admin/dashboard");
+    } else {
+      router.replace("/login");
+    }
+  }, [router]);
+
+  return null;
 }
-
-export default Homepage

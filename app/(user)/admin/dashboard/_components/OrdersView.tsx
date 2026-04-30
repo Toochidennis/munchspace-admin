@@ -1230,8 +1230,8 @@ export const OrdersView = () => {
             </p>
             <p className="text-sm text-gray-600">
               {selectedOrderForAction
-                ? MOCK_ORDERS.find((o) => o.id === selectedOrderForAction)
-                    ?.shippingAddress
+                ? (MOCK_ORDERS.find((o) => o.id === selectedOrderForAction) as any)
+                    ?.shippingAddress || "Plot 18, Green man street, Ikeja, Lagos, Nigeria"
                 : "No order selected"}
             </p>
           </div>

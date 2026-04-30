@@ -111,7 +111,7 @@ function CustomModal({
   );
 }
 
-const colorMap = {
+const colorMap: Record<string, string> = {
   "green-500": "#22C55E",
   "blue-400": "#3B82F6",
   "yellow-500": "#EAB308",
@@ -285,7 +285,7 @@ export const VendorsView = () => {
                   radius={[15, 15, 0, 0]}
                   barSize={39}
                   // Adds the gray background track behind each bar
-                  background={{ fill: "#edeef0", radius: [15, 15, 0, 0] }}
+                  background={{ fill: "#edeef0", radius: [15, 15, 0, 0] } as any}
                 />
               </BarChart>
             </ResponsiveContainer>

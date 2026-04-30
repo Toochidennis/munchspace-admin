@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { format } from "date-fns";
 import {
   ChevronLeft,
   ChevronDown,
@@ -191,13 +192,16 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">John Mandy</h1>
-              <span className="bg-[#4ADE80] text-white font-bold px-2 py-0.5 rounded text-[10px]">
-                ACTIVE
+              <h1 className="text-xl font-bold text-slate-900">{customer?.fullName || "Unknown Name"}</h1>
+              <span className={cn(
+                "text-white font-bold px-2 py-0.5 rounded text-[10px]",
+                customer?.status === "ACTIVE" ? "bg-[#50C828]" : "bg-red-500"
+              )}>
+                {customer?.status || "UNKNOWN"}
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium">
-              Registered on: 6th Aug, 2024 - 11:54 AM
+              Registered on: {customer?.registeredAt ? format(new Date(customer.registeredAt), "do MMM, yyyy - h:mm a") : "Unknown"}
             </p>
           </div>
         </div>
@@ -244,13 +248,13 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
                 </h4>
                 <div className="space-y-1">
                   <p className="text-sm text-slate-600 font-medium">
-                    John Mandy
+                    {customer?.fullName || "N/A"}
                   </p>
                   <p className="text-sm text-blue-500 underline font-medium cursor-pointer">
-                    johnmandy@gmail.com
+                    {customer?.email || "N/A"}
                   </p>
                   <p className="text-sm text-slate-600 font-medium">
-                    +234 8035748512
+                    {customer?.phoneNumber || "N/A"}
                   </p>
                 </div>
               </div>
@@ -259,7 +263,9 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
                   Shipping address
                 </h4>
                 <p className="text-sm text-slate-600 font-medium">
-                  Plot 18, Green man street, Ikeja, Lagos, Nigeria
+                  {customer?.shippingAddress 
+                    ? `${customer.shippingAddress.streetName}, ${customer.shippingAddress.city}${customer.shippingAddress.state ? `, ${customer.shippingAddress.state}` : ""}`
+                    : "No address provided"}
                 </p>
               </div>
               <div className="flex items-center gap-2">

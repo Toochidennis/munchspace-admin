@@ -116,7 +116,7 @@ export async function authenticatedFetch(
     "x-api-key": API_KEY,
   };
 
-  if (!options.headers?.["Content-Type"]) {
+  if (!(options.headers as Record<string, string>)?.["Content-Type"]) {
     (headers as Record<string, string>)["Content-Type"] = "application/json";
   }
 

@@ -7,9 +7,8 @@ import {
   Download,
   Filter,
   RotateCcw,
-  Calendar,
+  Calendar as CalendarIcon,
   MoreHorizontal,
-  Flag,
   ChevronLeft,
   ChevronRight,
   X,
@@ -17,6 +16,7 @@ import {
   Mail,
   Ban,
   UserCheck,
+  Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,74 +36,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 
-// --- DATA ---
-interface Vendor {
+// --- DATA TYPES ---
+interface ApiVendor {
   id: string;
-  name: string;
-  regDate: string;
-  itemsListed: number;
-  status:
-    | "APPROVED"
-    | "PENDING VERIFICATION"
-    | "REJECTED"
-    | "FLAGGED"
-    | "DEACTIVATED";
-  flagged: boolean;
+  legalName: string;
+  displayName: string;
+  createdAt: string;
+  status: string;
+  menuItemsCount: number;
 }
 
-const VENDOR_DATA: Vendor[] = [
-  {
-    id: "1001",
-    name: "Sabr collection",
-    regDate: "Tue Nov 26 2024",
-    itemsListed: 28,
-    status: "APPROVED",
-    flagged: false,
-  },
-  {
-    id: "1002",
-    name: "Amitex Store",
-    regDate: "Tue Nov 26 2024",
-    itemsListed: 15,
-    status: "APPROVED",
-    flagged: true,
-  },
-  {
-    id: "2001",
-    name: "Yolande Boutique",
-    regDate: "Wed Dec 01 2024",
-    itemsListed: 5,
-    status: "PENDING VERIFICATION",
-    flagged: false,
-  },
-  {
-    id: "3001",
-    name: "Rejected Store Alpha",
-    regDate: "Mon Jan 05 2024",
-    itemsListed: 0,
-    status: "REJECTED",
-    flagged: false,
-  },
-  {
-    id: "4001",
-    name: "Old Legacy Shop",
-    regDate: "Sun Oct 10 2023",
-    itemsListed: 0,
-    status: "DEACTIVATED",
-    flagged: false,
-  },
-  ...Array.from({ length: 40 }).map((_, i) => ({
-    id: `50${i}`,
-    name: `Vendor ${i + 5}`,
-    regDate: "Thu Jan 01 2026",
-    itemsListed: 10,
-    status: "APPROVED" as const,
-    flagged: false,
-  })),
-];
+interface StatusCounts {
+  ONBOARDING: number;
+  PENDING_REVIEW: number;
+  ACTIVE: number;
+  REJECTED: number;
+  SUSPENDED: number;
+  DEACTIVATED: number;
+}
 
 const CustomDialog = ({ isOpen, onClose, title, children }: any) => {
   if (!isOpen) return null;
@@ -127,67 +84,112 @@ const CustomDialog = ({ isOpen, onClose, title, children }: any) => {
 
 export default function VendorsPage() {
   const router = useRouter();
+
+  // Filters State
   const [activeTab, setActiveTab] = React.useState("all");
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  const [isFilterOpen, setIsFilterOpen] = React.useState(false);
+  const [dateRange, setDateRange] = React.useState<string>("");
+  const [startDate, setStartDate] = React.useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = React.useState<Date | undefined>(undefined);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(20);
+
+  // Data State
+  const [vendors, setVendors] = React.useState<ApiVendor[]>([]);
+  const [statusCounts, setStatusCounts] = React.useState<StatusCounts>({
+    ONBOARDING: 0,
+    PENDING_REVIEW: 0,
+    ACTIVE: 0,
+    REJECTED: 0,
+    SUSPENDED: 0,
+    DEACTIVATED: 0,
+  });
+  const [totalVendors, setTotalVendors] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  // Action State
   const [selectedVendors, setSelectedVendors] = React.useState<string[]>([]);
   const [showNotifyModal, setShowNotifyModal] = React.useState(false);
-  const [notifyType, setNotifyType] = React.useState("order");
+  const [customMessage, setCustomMessage] = React.useState("");
+  const [isSendingMessage, setIsSendingMessage] = React.useState(false);
+  const [selectedVendorForAction, setSelectedVendorForAction] = React.useState<string | null>(null);
 
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const [itemsPerPage, setItemsPerPage] = React.useState(10);
-
-  // Filter Logic
-  const searchFilteredResults = React.useMemo(() => {
-    return VENDOR_DATA.filter((v) => {
-      const query = searchQuery.toLowerCase();
-      return (
-        v.name.toLowerCase().includes(query) ||
-        v.id.toLowerCase().includes(query)
-      );
-    });
+  // Debounce search
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const tabFilteredData = React.useMemo(() => {
-    return searchFilteredResults.filter((v) => {
-      if (activeTab === "all") return true;
-      if (activeTab === "flagged") return v.flagged;
-      const normalizedStatus = v.status.toLowerCase().replace(/\s/g, "");
-      return normalizedStatus === activeTab.toLowerCase();
-    });
-  }, [searchFilteredResults, activeTab]);
+  // Fetch Logic
+  const fetchVendors = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+      });
 
-  const counts = React.useMemo(
-    () => ({
-      all: searchFilteredResults.length,
-      approved: searchFilteredResults.filter((v) => v.status === "APPROVED")
-        .length,
-      pendingverification: searchFilteredResults.filter(
-        (v) => v.status === "PENDING VERIFICATION",
-      ).length,
-      rejected: searchFilteredResults.filter((v) => v.status === "REJECTED")
-        .length,
-      flagged: searchFilteredResults.filter((v) => v.flagged).length,
-      deactivated: searchFilteredResults.filter(
-        (v) => v.status === "DEACTIVATED",
-      ).length,
-    }),
-    [searchFilteredResults],
-  );
+      if (activeTab !== "all") {
+        params.append("status", activeTab);
+      }
+      if (debouncedSearch) {
+        params.append("search", debouncedSearch);
+      }
+      if (startDate) {
+        params.append("startDate", startDate.toISOString());
+      }
+      if (endDate) {
+        params.append("endDate", endDate.toISOString());
+      }
 
-  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
-  const paginatedData = tabFilteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+      const res = await authenticatedFetch(`/admin/businesses?${params.toString()}`);
+      const apiRes = await parseApiResponse(res);
+
+      if (apiRes?.success) {
+        setVendors(apiRes.data.data || []);
+        setTotalVendors(apiRes.data.meta?.total || 0);
+        setTotalPages(apiRes.data.meta?.totalPages || 1);
+        setStatusCounts(
+          apiRes.data.statusCounts || {
+            ONBOARDING: 0,
+            PENDING_REVIEW: 0,
+            ACTIVE: 0,
+            REJECTED: 0,
+            SUSPENDED: 0,
+            DEACTIVATED: 0,
+          }
+        );
+      } else {
+        toast.error(apiRes?.message || "Failed to fetch vendors");
+      }
+    } catch (err) {
+      toast.error("An error occurred while fetching vendors");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, itemsPerPage, activeTab, debouncedSearch, startDate, endDate]);
+
+  React.useEffect(() => {
+    fetchVendors();
+  }, [fetchVendors]);
+
+  // Handle Tab Change
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    setCurrentPage(1);
+  };
 
   const getPageNumbers = () => {
     const pages = [];
     for (let i = 1; i <= totalPages; i++) {
-      if (
-        i === 1 ||
-        i === totalPages ||
-        (i >= currentPage - 1 && i <= currentPage + 1)
-      ) {
+      if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
         pages.push(i);
       } else if (pages[pages.length - 1] !== "...") {
         pages.push("...");
@@ -196,101 +198,159 @@ export default function VendorsPage() {
     return pages;
   };
 
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, activeTab]);
+  const totalStatusCount = React.useMemo(() => {
+    return Object.values(statusCounts).reduce((a, b) => a + b, 0);
+  }, [statusCounts]);
 
   return (
     <div className="block h-auto w-full bg-[#F8FAFC] overflow-auto">
       <div className="max-w-[1600px] mx-auto p-6 md:p-8 space-y-6 pb-24">
+        {/* Header Section */}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">
-            Total ({counts.all})
+            {isLoading ? (
+              <span className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+              </span>
+            ) : (
+              `Total (${totalStatusCount})`
+            )}
           </h1>
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               className="text-gray-400"
-              onClick={() => toast("Refreshed")}
+              onClick={fetchVendors}
+              disabled={isLoading}
             >
-              <RotateCcw size={20} />
+              <RotateCcw size={20} className={isLoading ? "animate-spin" : ""} />
             </Button>
-            <Select defaultValue="30">
+            <Select
+              value={dateRange || "all"}
+              onValueChange={(val) => {
+                setDateRange(val === "all" ? "" : val);
+                setStartDate(undefined);
+                setEndDate(undefined);
+              }}
+            >
               <SelectTrigger className="w-[180px] h-10 bg-white border-gray-200 text-gray-600 font-medium">
-                <Calendar size={16} className="mr-2 text-gray-400" />
-                <SelectValue />
+                <CalendarIcon size={16} className="mr-2 text-gray-400" />
+                <SelectValue placeholder="All time" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
         <Card className="border-none shadow-sm rounded-xl bg-white p-6 space-y-6 overflow-visible">
+          {/* Filters & Actions */}
           <div className="flex items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={18}
-              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <Input
                 placeholder="Search"
                 className="pl-10 h-11 border-gray-200 bg-[#FBFBFC] rounded-lg focus-visible:ring-gray-200"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="h-11 border-gray-200 text-gray-600 font-medium gap-2 px-5"
-              >
+              <Button variant="outline" className="h-11 border-gray-200 text-gray-600 font-medium gap-2 px-5 shadow-none">
                 <Download size={18} /> Download
               </Button>
               <Button
-                variant="outline"
-                className="h-11 border-gray-200 text-gray-600 font-medium gap-2 px-5"
+                variant={isFilterOpen ? "default" : "outline"}
+                className={cn(
+                  "h-11 font-semibold border-gray-200 shadow-none gap-2 px-5",
+                  isFilterOpen && "bg-gray-100 text-gray-900 border-transparent"
+                )}
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
               >
-                <Filter size={18} /> Filter
+                <Filter size={18} /> Filter {isFilterOpen && <X size={14} />}
               </Button>
             </div>
           </div>
 
-          <div className="border-b border-gray-100 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-8">
-              {[
-                { id: "all", label: `All ${counts.all}` },
-                { id: "approved", label: `Approved ${counts.approved}` },
-                {
-                  id: "pendingverification",
-                  label: `Pending Verification ${counts.pendingverification}`,
-                },
-                { id: "rejected", label: `Rejected ${counts.rejected}` },
-                { id: "flagged", label: `Flagged ${counts.flagged}` },
-                {
-                  id: "deactivated",
-                  label: `Deactivated ${counts.deactivated}`,
-                },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "pb-3 text-sm font-semibold transition-all border-b-2 whitespace-nowrap",
-                    activeTab === tab.id
-                      ? "border-[#E86B35] text-[#E86B35]"
-                      : "border-transparent text-gray-400 hover:text-gray-600",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          {/* Date Picker Row (If filter open) */}
+          {isFilterOpen && (
+            <div className="flex flex-wrap gap-3 items-center py-2 border-b border-gray-100">
+              <div className="flex items-center gap-2 px-3 h-9 bg-gray-50 border border-gray-100 rounded-md text-xs font-semibold text-gray-600">
+                <Filter size={14} /> Custom Date
+              </div>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[200px] h-9 text-xs justify-start shadow-none border-gray-200">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+                    {startDate ? format(startDate, "dd/MM/yyyy") : "Start date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[150]">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(d) => { setStartDate(d); setDateRange(""); }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[200px] h-9 text-xs justify-start shadow-none border-gray-200">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+                    {endDate ? format(endDate, "dd/MM/yyyy") : "End date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[150]">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={(d) => { setEndDate(d); setDateRange(""); }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
+          )}
+
+          {/* Tabs */}
+          <div className="flex gap-6 border-b border-gray-100 overflow-x-auto scrollbar-hide">
+            {[
+              { id: "all", label: "All", count: totalStatusCount },
+              ...Object.entries(statusCounts)
+                .filter(([_, count]) => count > 0)
+                .map(([key, count]) => ({
+                  id: key.toLowerCase(),
+                  label: key.charAt(0).toUpperCase() + key.slice(1).toLowerCase().replace(/_/g, " "),
+                  count: count
+                }))
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  "pb-3 text-sm font-medium relative whitespace-nowrap",
+                  activeTab === tab.id
+                    ? "text-[#E86B35] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#E86B35]"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
           </div>
 
+          {/* Bulk Actions */}
           <div className="flex items-center gap-4 py-1">
             <span className="text-sm font-semibold text-gray-900">
               Selected: {selectedVendors.length}
@@ -298,70 +358,61 @@ export default function VendorsPage() {
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
-              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md"
+              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
             >
               Mark Vendor As...
             </Button>
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
-              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md"
-              onClick={() => setShowNotifyModal(true)}
+              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
+              onClick={() => {
+                setSelectedVendorForAction(null);
+                setCustomMessage("");
+                setShowNotifyModal(true);
+              }}
             >
               Notify Vendor...
             </Button>
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
-              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md"
+              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
             >
               Deactivate Vendor
             </Button>
           </div>
 
+          {/* Table */}
           <div className="border border-gray-100 rounded-lg overflow-x-auto bg-white">
             <table className="w-full text-sm text-left border-collapse min-w-[900px]">
               <thead className="bg-[#F8FAFC] text-gray-700 font-semibold border-b border-gray-100">
                 <tr>
-                  <th className="p-4 w-12">
+                  <th className="p-4 w-12 border-r border-gray-100">
                     <Checkbox
                       checked={
-                        selectedVendors.length === paginatedData.length &&
-                        paginatedData.length > 0
+                        selectedVendors.length === vendors.length &&
+                        vendors.length > 0
                       }
                       onCheckedChange={() => {
-                        if (selectedVendors.length === paginatedData.length)
+                        if (selectedVendors.length === vendors.length)
                           setSelectedVendors([]);
-                        else setSelectedVendors(paginatedData.map((v) => v.id));
+                        else setSelectedVendors(vendors.map((v) => v.id));
                       }}
                       className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                     />
                   </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Vendor ID
-                  </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Vendor Name
-                  </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Reg Date
-                  </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Items Listed
-                  </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Status
-                  </th>
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">Vendor Name</th>
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">Reg Date</th>
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">Items Listed</th>
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">Status</th>
                   <th className="p-4 text-center w-10">-</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {paginatedData.map((vendor) => (
-                  <tr
-                    key={vendor.id}
-                    className="hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="p-4">
+                {vendors.map((vendor) => (
+                  <tr key={vendor.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="p-4 border-r border-gray-100">
                       <Checkbox
                         checked={selectedVendors.includes(vendor.id)}
                         onCheckedChange={() =>
@@ -374,77 +425,61 @@ export default function VendorsPage() {
                         className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                       />
                     </td>
-                    <td className="p-4 font-semibold text-gray-900">
-                      #{vendor.id}
-                    </td>
-                    <td className="p-4 text-gray-600 font-medium">
-                      {vendor.name}
-                    </td>
-                    <td className="p-4 text-gray-500">{vendor.regDate}</td>
-                    <td className="p-4 text-gray-600 font-medium">
-                      {vendor.itemsListed}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={cn(
-                            "px-2.5 py-1 rounded text-[12px] uppercase text-white",
-                            vendor.status === "APPROVED" &&
-                              "bg-green-500",
-                            vendor.status === "PENDING VERIFICATION" &&
-                              "bg-yellow-500",
-                            vendor.status === "REJECTED" &&
-                              "bg-red-500",
-                            vendor.status === "DEACTIVATED" &&
-                              "bg-gray-500",
-                          )}
-                        >
-                          {vendor.status}
-                        </span>
-                        {vendor.flagged && (
-                          <Flag
-                            size={14}
-                            className="text-red-500 fill-red-500"
-                          />
-                        )}
+                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
+                      <div className="flex flex-col">
+                        <span>{vendor.displayName || vendor.legalName}</span>
+                        <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{vendor.legalName}</span>
                       </div>
+                    </td>
+                    <td className="p-4 text-gray-500 border-r border-gray-100 whitespace-nowrap">
+                      {format(new Date(vendor.createdAt), "do MMM yyyy, h:mm a")}
+                    </td>
+                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
+                      {vendor.menuItemsCount}
+                    </td>
+                    <td className="p-4 border-r border-gray-100">
+                      <span
+                        className={cn(
+                          "px-2.5 py-1 rounded text-[10px] uppercase font-bold text-white shadow-sm inline-block",
+                          vendor.status === "ACTIVE" ? "bg-[#50C828]" : 
+                          vendor.status === "PENDING_REVIEW" ? "bg-yellow-500" :
+                          vendor.status === "REJECTED" ? "bg-red-500" :
+                          vendor.status === "DEACTIVATED" ? "bg-gray-500" :
+                          vendor.status === "SUSPENDED" ? "bg-red-600" :
+                          "bg-blue-500" // ONBOARDING
+                        )}
+                      >
+                        {vendor.status.replace("_", " ")}
+                      </span>
                     </td>
                     <td className="p-4 text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-gray-900"
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-900">
                             <MoreHorizontal size={20} />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-52 p-1.5 shadow-lg border-gray-100 rounded-lg"
-                        >
+                        <DropdownMenuContent align="end" className="w-52 p-1.5 shadow-lg border-gray-100 rounded-lg">
                           <DropdownMenuItem
                             className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
-                            onClick={() =>
-                              router.push(`/admin/vendors/${vendor.id}`)
-                            }
+                            onClick={() => router.push(`/admin/vendors/${vendor.id}`)}
                           >
-                            <Eye size={16} className="text-gray-400" /> View
-                            Details
+                            <Eye size={16} className="text-gray-400" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50">
-                            <UserCheck size={16} className="text-gray-400" />{" "}
-                            Mark Vendor as...
+                          <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer">
+                            <UserCheck size={16} className="text-gray-400" /> Mark Vendor as...
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50"
-                            onClick={() => setShowNotifyModal(true)}
+                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              setSelectedVendorForAction(vendor.id);
+                              setCustomMessage("");
+                              setShowNotifyModal(true);
+                            }}
                           >
-                            <Mail size={16} className="text-gray-400" /> Notify
-                            Vendor...
+                            <Mail size={16} className="text-gray-400" /> Notify Vendor...
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50">
+                          <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50 cursor-pointer">
                             <Ban size={16} /> Deactivate Vendor
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -452,23 +487,28 @@ export default function VendorsPage() {
                     </td>
                   </tr>
                 ))}
+                {!isLoading && vendors.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-500 font-medium">
+                      No vendors found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
 
-          <div className="flex items-center justify-center gap-6 text-sm border-t pt-6">
+          {/* Pagination */}
+          <div className="flex items-center justify-center gap-6 text-sm border-t border-gray-100 pt-6">
             <p className="text-gray-500">
-              Total{" "}
-              <span className="text-gray-900 font-medium">
-                {tabFilteredData.length} items
-              </span>
+              Total <span className="text-gray-900 font-medium">{totalVendors} items</span>
             </p>
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded"
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || isLoading}
                 onClick={() => setCurrentPage((p) => p - 1)}
               >
                 <ChevronLeft size={18} />
@@ -480,14 +520,13 @@ export default function VendorsPage() {
                     variant={currentPage === page ? "default" : "ghost"}
                     size="sm"
                     className={cn(
-                      "h-8 w-8 rounded font-medium",
+                      "h-8 w-8 rounded font-medium shadow-none",
                       currentPage === page
-                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                        ? "bg-[#E86B35] text-white hover:bg-[#d15d2c]"
                         : "text-gray-500",
                     )}
-                    onClick={() =>
-                      typeof page === "number" && setCurrentPage(page)
-                    }
+                    onClick={() => typeof page === "number" && setCurrentPage(page)}
+                    disabled={isLoading}
                   >
                     {page}
                   </Button>
@@ -497,7 +536,7 @@ export default function VendorsPage() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded"
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || totalPages === 0 || isLoading}
                 onClick={() => setCurrentPage((p) => p + 1)}
               >
                 <ChevronRight size={18} />
@@ -505,12 +544,10 @@ export default function VendorsPage() {
             </div>
             <Select
               value={`${itemsPerPage}`}
-              onValueChange={(v) => {
-                setItemsPerPage(Number(v));
-                setCurrentPage(1);
-              }}
+              onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
+              disabled={isLoading}
             >
-              <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
+              <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded shadow-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -520,74 +557,128 @@ export default function VendorsPage() {
               </SelectContent>
             </Select>
           </div>
-        </Card>
+</Card>
       </div>
 
       <CustomDialog
         isOpen={showNotifyModal}
-        onClose={() => setShowNotifyModal(false)}
-        title="Notify Vendor..."
+        onClose={() => {
+          setShowNotifyModal(false);
+          setCustomMessage("");
+        }}
+        title="Notify Vendor"
       >
-        <div className="p-6 space-y-6">
-          <p className="text-sm text-gray-600">
-            Send a <span className="font-bold text-gray-900">WhatsApp</span>{" "}
-            notification to selected stores:
-          </p>
-          <div className="space-y-4">
-            {[
-              "Notify of New Order Alert",
-              "Prepare Order #1002 for Pickup",
-              "Inform About Order #1002 Cancellation",
-              "Custom Message",
-            ].map((opt) => (
-              <div
-                key={opt}
-                className="flex items-center gap-3 cursor-pointer group"
-                onClick={() => setNotifyType(opt)}
-              >
-                <div
-                  className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center",
-                    notifyType === opt ? "border-[#E86B35]" : "border-gray-300",
-                  )}
-                >
-                  {notifyType === opt && (
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#E86B35]" />
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    notifyType === opt ? "text-gray-900" : "text-gray-500",
-                  )}
-                >
-                  {opt}
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedVendorForAction ? (
+              <>
+                Send a message to vendor:{" "}
+                <span className="font-medium">
+                  {vendors.find((v) => v.id === selectedVendorForAction)?.displayName ||
+                   vendors.find((v) => v.id === selectedVendorForAction)?.legalName || "Vendor"}
                 </span>
-              </div>
-            ))}
-            {notifyType === "Custom Message" && (
-              <Textarea
-                placeholder="Type here..."
-                className="min-h-[120px] border-gray-200 focus:border-[#E86B35] rounded-lg resize-none"
-              />
+              </>
+            ) : (
+              <>
+                Send a message to vendors for{" "}
+                <span className="font-medium">
+                  {selectedVendors.length} selected vendor{selectedVendors.length !== 1 ? "s" : ""}
+                </span>
+              </>
             )}
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Message
+            </label>
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Type your message here..."
+              rows={5}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#E86B35] resize-y"
+            />
           </div>
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-50">
+
+          <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-100">
             <Button
               variant="outline"
-              onClick={() => setShowNotifyModal(false)}
-              className="px-6 h-11 font-semibold text-gray-500 border-gray-200 rounded-lg"
+              onClick={() => {
+                setShowNotifyModal(false);
+                setCustomMessage("");
+              }}
             >
               Cancel
             </Button>
             <Button
-              className="px-6 h-11 font-semibold bg-[#E86B35] text-white hover:bg-[#d15d2c] rounded-lg"
-              onClick={() => {
-                toast.success("Message sent");
-                setShowNotifyModal(false);
+              className="bg-[#E86B35] hover:bg-[#d15d2c] text-white shadow-none"
+              disabled={!customMessage.trim() || isSendingMessage}
+              onClick={async () => {
+                if (!customMessage.trim()) return;
+
+                setIsSendingMessage(true);
+                try {
+                  const vendorsToNotify = selectedVendorForAction
+                    ? [vendors.find((v) => v.id === selectedVendorForAction)].filter(Boolean)
+                    : selectedVendors
+                        .map((id) => vendors.find((v) => v.id === id))
+                        .filter(Boolean);
+
+                  if (!vendorsToNotify.length) {
+                    toast.error("No vendors selected");
+                    return;
+                  }
+
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (const v of vendorsToNotify) {
+                    if (!v) continue;
+
+                    const res = await authenticatedFetch(
+                      `/admin/businesses/${v.id}/messages`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          recipient: "vendor",
+                          message: customMessage.trim(),
+                        }),
+                      }
+                    );
+                    const result = await parseApiResponse(res);
+                    console.log("response is", result)
+
+                    if (result?.success) {
+                      successCount++;
+                    } else {
+                      failCount++;
+                    }
+                  }
+
+                  if (failCount === 0) {
+                    toast.success(`Message sent to ${successCount} vendor${successCount > 1 ? "s" : ""}`);
+                  } else {
+                    toast.warning(`Sent to ${successCount} vendors, failed for ${failCount}`);
+                  }
+
+                  setShowNotifyModal(false);
+                  setCustomMessage("");
+                  setSelectedVendors([]);
+                } catch (err) {
+                  toast.error("Failed to send message");
+                } finally {
+                  setIsSendingMessage(false);
+                }
               }}
             >
-              Send Message
+              {isSendingMessage ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Message"
+              )}
             </Button>
           </div>
         </div>

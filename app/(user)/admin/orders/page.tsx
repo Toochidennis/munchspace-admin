@@ -160,6 +160,7 @@ interface Order {
   }[];
   shippingAddress?: string;
   paymentStatus: string;
+  allowedTransitions: StatusTransition[];
 }
 
 interface Courier {
@@ -247,8 +248,8 @@ export default function OrdersPage() {
   const [selectedOrderForAction, setSelectedOrderForAction] = useState<
     string | null
   >(null);
-  const [notificationOption, setNotificationOption] = useState("");
   const [customMessage, setCustomMessage] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [courierTab, setCourierTab] = useState<"all" | "unassigned">(
     "unassigned",
   );
@@ -264,6 +265,18 @@ export default function OrdersPage() {
   );
   const [showCancelPassword, setShowCancelPassword] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Mark Order As Modal State
+  const [markOrderAsOpen, setMarkOrderAsOpen] = useState(false);
+  const [selectedStatusKey, setSelectedStatusKey] = useState("");
+  const [statusChangeReason, setStatusChangeReason] = useState("");
+  const [statusChangePassword, setStatusChangePassword] = useState("");
+  const [showStatusChangePassword, setShowStatusChangePassword] =
+    useState(false);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const [statusChangeError, setStatusChangeError] = useState<string | null>(
+    null,
+  );
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
@@ -364,6 +377,7 @@ export default function OrdersPage() {
             category: "",
             image: item.imageUrl,
           })),
+          allowedTransitions: (apiOrder as any).allowedTransitions || [],
         });
       }
     }
@@ -899,6 +913,14 @@ export default function OrdersPage() {
               variant="outline"
               size="sm"
               disabled={!selectedOrders.length}
+              onClick={() => {
+                setSelectedOrderForAction(null);
+                setSelectedStatusKey("");
+                setStatusChangeReason("");
+                setStatusChangePassword("");
+                setStatusChangeError(null);
+                setMarkOrderAsOpen(true);
+              }}
             >
               Mark Order As...
             </Button>
@@ -906,7 +928,11 @@ export default function OrdersPage() {
               variant="outline"
               size="sm"
               disabled={!selectedOrders.length}
-              onClick={() => setNotifyVendorOpen(true)}
+              onClick={() => {
+                setSelectedOrderForAction(null);
+                setCustomMessage("");
+                setNotifyVendorOpen(true);
+              }}
             >
               <img
                 src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
@@ -919,7 +945,11 @@ export default function OrdersPage() {
               variant="outline"
               size="sm"
               disabled={!selectedOrders.length}
-              onClick={() => setNotifyCustomerOpen(true)}
+              onClick={() => {
+                setSelectedOrderForAction(null);
+                setCustomMessage("");
+                setNotifyCustomerOpen(true);
+              }}
             >
               <MessageSquare className="mr-2 h-4 w-4" />
               Notify Customer...
@@ -1049,7 +1079,7 @@ export default function OrdersPage() {
                         >
                           <DropdownMenuItem asChild>
                             <Link
-                              href={`/admin/orders/${order.id.replace("#", "")}`}
+                              href={`/admin/orders/${order.orderId}`}
                               className="flex items-center gap-2 py-2.5 w-full"
                             >
                               <Eye size={16} /> View More Info
@@ -1059,6 +1089,7 @@ export default function OrdersPage() {
                             className="gap-2 py-2.5 text-green-600"
                             onClick={() => {
                               setSelectedOrderForAction(order.id);
+                              setCustomMessage("");
                               setNotifyVendorOpen(true);
                             }}
                           >
@@ -1073,12 +1104,23 @@ export default function OrdersPage() {
                             className="gap-2 py-2.5 text-blue-500"
                             onClick={() => {
                               setSelectedOrderForAction(order.id);
+                              setCustomMessage("");
                               setNotifyCustomerOpen(true);
                             }}
                           >
                             <MessageSquare size={16} /> Notify Customer...
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 py-2.5">
+                          <DropdownMenuItem
+                            className="gap-2 py-2.5"
+                            onClick={() => {
+                              setSelectedOrderForAction(order.id);
+                              setSelectedStatusKey("");
+                              setStatusChangeReason("");
+                              setStatusChangePassword("");
+                              setStatusChangeError(null);
+                              setMarkOrderAsOpen(true);
+                            }}
+                          >
                             <CheckCircle2 size={16} /> Mark Order as...
                           </DropdownMenuItem>
                           <div className="h-px bg-gray-100 my-1" />
@@ -1259,90 +1301,133 @@ export default function OrdersPage() {
         isOpen={notifyVendorOpen}
         onClose={() => {
           setNotifyVendorOpen(false);
-          setNotificationOption("");
           setCustomMessage("");
         }}
-        title="Notify Vendor..."
-        maxWidth="sm:max-w-[580px]"
+        title="Notify Vendor"
+        maxWidth="sm:max-w-[500px]"
         footer={
           <>
             <Button
               variant="outline"
-              onClick={() => setNotifyVendorOpen(false)}
+              onClick={() => {
+                setNotifyVendorOpen(false);
+                setCustomMessage("");
+              }}
             >
               Cancel
             </Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!notificationOption}
-              onClick={() => {
-                toast.success("Notification sent to vendor");
-                setNotifyVendorOpen(false);
-                setNotificationOption("");
-                setCustomMessage("");
+              disabled={!customMessage.trim() || isSendingMessage}
+              onClick={async () => {
+                if (!customMessage.trim()) return;
+
+                setIsSendingMessage(true);
+                try {
+                  // Get orders to send messages to
+                  const ordersToNotify = selectedOrderForAction
+                    ? [
+                        allOrders.find((o) => o.id === selectedOrderForAction),
+                      ].filter(Boolean)
+                    : selectedOrders
+                        .map((id) => allOrders.find((o) => o.id === id))
+                        .filter(Boolean);
+
+                  if (!ordersToNotify.length) {
+                    toast.error("No orders selected");
+                    return;
+                  }
+
+                  // Send messages to each order
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (const order of ordersToNotify) {
+                    if (!order) continue;
+
+                    const res = await authenticatedFetch(
+                      `/admin/orders/${order.orderId}/messages`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          recipient: "vendor",
+                          message: customMessage.trim(),
+                        }),
+                      },
+                    );
+                    const result = await parseApiResponse(res);
+
+                    if (result?.success) {
+                      successCount++;
+                    } else {
+                      failCount++;
+                    }
+                  }
+
+                  if (failCount === 0) {
+                    toast.success(
+                      `Message sent to vendor for ${successCount} order${successCount > 1 ? "s" : ""}`,
+                    );
+                  } else {
+                    toast.warning(
+                      `Sent to ${successCount} orders, failed for ${failCount}`,
+                    );
+                  }
+
+                  setNotifyVendorOpen(false);
+                  setCustomMessage("");
+                  setSelectedOrders([]);
+                } catch (err) {
+                  toast.error("Failed to send message");
+                } finally {
+                  setIsSendingMessage(false);
+                }
               }}
             >
-              Send Message
+              {isSendingMessage ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Message"
+              )}
             </Button>
           </>
         }
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedOrderForAction ? (
+              <>
+                Send a message to vendor:{" "}
+                <span className="font-medium">
+                  {allOrders.find((o) => o.id === selectedOrderForAction)
+                    ?.vendor || "Vendor"}
+                </span>
+              </>
+            ) : (
+              <>
+                Send a message to vendors for{" "}
+                <span className="font-medium">
+                  {selectedOrders.length} selected order
+                  {selectedOrders.length !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
+          </p>
           <div>
-            <p className="text-sm text-gray-700 mb-4">
-              Send a WhatsApp notification message to:{" "}
-              <span className="font-medium">
-                {selectedOrderForAction
-                  ? allOrders.find((o) => o.id === selectedOrderForAction)
-                      ?.vendor
-                  : "Selected vendors"}
-              </span>
-            </p>
-
-            <div className="space-y-3">
-              {[
-                { id: "new-order", label: "Notify of New Order Alert" },
-                {
-                  id: "prepare",
-                  label: `Prepare Order ${selectedOrderForAction || "#XXXX"} for Pickup`,
-                },
-                {
-                  id: "cancel",
-                  label: `Inform About Order ${selectedOrderForAction || "#XXXX"} Cancellation`,
-                },
-                { id: "custom", label: "Custom Message" },
-              ].map((opt) => (
-                <label
-                  key={opt.id}
-                  className="flex items-center gap-3 cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    name="notify-option"
-                    checked={notificationOption === opt.id}
-                    onChange={() => setNotificationOption(opt.id)}
-                    className="h-4 w-4 text-orange-500 focus:ring-orange-500"
-                  />
-                  <span className="text-sm text-gray-800">{opt.label}</span>
-                </label>
-              ))}
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Message
+            </label>
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Type your message here..."
+              rows={5}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+            />
           </div>
-
-          {notificationOption === "custom" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message
-              </label>
-              <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Type here..."
-                rows={4}
-                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-          )}
         </div>
       </CustomModal>
 
@@ -1351,78 +1436,133 @@ export default function OrdersPage() {
         isOpen={notifyCustomerOpen}
         onClose={() => {
           setNotifyCustomerOpen(false);
-          setNotificationOption("");
           setCustomMessage("");
         }}
-        title="Notify Customer..."
-        maxWidth="sm:max-w-[580px]"
+        title="Notify Customer"
+        maxWidth="sm:max-w-[500px]"
         footer={
           <>
             <Button
               variant="outline"
-              onClick={() => setNotifyCustomerOpen(false)}
+              onClick={() => {
+                setNotifyCustomerOpen(false);
+                setCustomMessage("");
+              }}
             >
               Cancel
             </Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!notificationOption}
-              onClick={() => {
-                toast.success("Notification sent to customer");
-                setNotifyCustomerOpen(false);
-                setNotificationOption("");
-                setCustomMessage("");
+              disabled={!customMessage.trim() || isSendingMessage}
+              onClick={async () => {
+                if (!customMessage.trim()) return;
+
+                setIsSendingMessage(true);
+                try {
+                  // Get orders to send messages to
+                  const ordersToNotify = selectedOrderForAction
+                    ? [
+                        allOrders.find((o) => o.id === selectedOrderForAction),
+                      ].filter(Boolean)
+                    : selectedOrders
+                        .map((id) => allOrders.find((o) => o.id === id))
+                        .filter(Boolean);
+
+                  if (!ordersToNotify.length) {
+                    toast.error("No orders selected");
+                    return;
+                  }
+
+                  // Send messages to each order
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (const order of ordersToNotify) {
+                    if (!order) continue;
+
+                    const res = await authenticatedFetch(
+                      `/admin/orders/${order.orderId}/messages`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          recipient: "customer",
+                          message: customMessage.trim(),
+                        }),
+                      },
+                    );
+                    const result = await parseApiResponse(res);
+
+                    if (result?.success) {
+                      successCount++;
+                    } else {
+                      failCount++;
+                    }
+                  }
+
+                  if (failCount === 0) {
+                    toast.success(
+                      `Message sent to customer for ${successCount} order${successCount > 1 ? "s" : ""}`,
+                    );
+                  } else {
+                    toast.warning(
+                      `Sent to ${successCount} orders, failed for ${failCount}`,
+                    );
+                  }
+
+                  setNotifyCustomerOpen(false);
+                  setCustomMessage("");
+                  setSelectedOrders([]);
+                } catch (err) {
+                  toast.error("Failed to send message");
+                } finally {
+                  setIsSendingMessage(false);
+                }
               }}
             >
-              Send Message
+              {isSendingMessage ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Message"
+              )}
             </Button>
           </>
         }
       >
-        <div className="space-y-6">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedOrderForAction ? (
+              <>
+                Send a message to customer:{" "}
+                <span className="font-medium">
+                  {allOrders.find((o) => o.id === selectedOrderForAction)
+                    ?.customer || "Customer"}
+                </span>
+              </>
+            ) : (
+              <>
+                Send a message to customers for{" "}
+                <span className="font-medium">
+                  {selectedOrders.length} selected order
+                  {selectedOrders.length !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
+          </p>
           <div>
-            <p className="text-sm text-gray-700 mb-4">
-              Send a WhatsApp notification message to the customer:
-            </p>
-            <div className="space-y-3">
-              {[
-                { id: "order-confirmed", label: "Order Confirmed" },
-                { id: "on-the-way", label: "Order is on the way" },
-                { id: "delivered", label: "Order Delivered" },
-                { id: "cancelled", label: "Order Cancelled" },
-                { id: "custom", label: "Custom Message" },
-              ].map((opt) => (
-                <label
-                  key={opt.id}
-                  className="flex items-center gap-3 cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    name="notify-customer"
-                    checked={notificationOption === opt.id}
-                    onChange={() => setNotificationOption(opt.id)}
-                    className="h-4 w-4 text-orange-500 focus:ring-orange-500"
-                  />
-                  <span className="text-sm text-gray-800">{opt.label}</span>
-                </label>
-              ))}
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Message
+            </label>
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Type your message here..."
+              rows={5}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+            />
           </div>
-
-          {notificationOption === "custom" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message
-              </label>
-              <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Type here..."
-                rows={4}
-                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-          )}
         </div>
       </CustomModal>
 
@@ -1604,7 +1744,7 @@ export default function OrdersPage() {
           <div>
             <p className="text-sm text-gray-700 mb-4">
               You are about to cancel order{" "}
-              <span className="font-medium">{cancelOrderId}</span>.
+              <span className="font-medium">#Add later</span>.
             </p>
 
             <div className="space-y-4">
@@ -1663,6 +1803,231 @@ export default function OrdersPage() {
               </div>
             </div>
           </div>
+        </div>
+      </CustomModal>
+
+      {/* Mark Order As Modal */}
+      <CustomModal
+        isOpen={markOrderAsOpen}
+        onClose={() => {
+          if (!isChangingStatus) {
+            setMarkOrderAsOpen(false);
+            setSelectedOrderForAction(null);
+            setSelectedStatusKey("");
+            setStatusChangeReason("");
+            setStatusChangePassword("");
+            setStatusChangeError(null);
+          }
+        }}
+        title="Mark Order As"
+        maxWidth="sm:max-w-[500px]"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMarkOrderAsOpen(false);
+                setSelectedOrderForAction(null);
+                setSelectedStatusKey("");
+                setStatusChangeReason("");
+                setStatusChangePassword("");
+              }}
+              disabled={isChangingStatus}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={async () => {
+                if (!selectedStatusKey || !statusChangePassword.trim()) return;
+
+                setIsChangingStatus(true);
+                setStatusChangeError(null);
+
+                try {
+                  // Get the order to change status for
+                  const order = selectedOrderForAction
+                    ? allOrders.find((o) => o.id === selectedOrderForAction)
+                    : selectedOrders.length === 1
+                      ? allOrders.find((o) => o.id === selectedOrders[0])
+                      : null;
+
+                  if (!order) {
+                    toast.error("No order selected");
+                    return;
+                  }
+
+                  const res = await authenticatedFetch(
+                    `/admin/orders/${order.orderId}/status`,
+                    {
+                      method: "PATCH",
+                      body: JSON.stringify({
+                        statusKey: selectedStatusKey,
+                        reason: statusChangeReason.trim(),
+                        password: statusChangePassword.trim(),
+                      }),
+                    },
+                  );
+
+                  const result = await parseApiResponse(res);
+                  console.log("Status change response:", result);
+
+                  // Handle 401 Unauthorized - incorrect password
+                  if (res.status === 401) {
+                    setStatusChangeError("Incorrect password");
+                    setIsChangingStatus(false);
+                    return;
+                  }
+
+                  if (result?.success) {
+                    toast.success("Order status updated successfully");
+                    setMarkOrderAsOpen(false);
+                    setSelectedOrderForAction(null);
+                    setSelectedStatusKey("");
+                    setStatusChangeReason("");
+                    setStatusChangePassword("");
+                    setStatusChangeError(null);
+                    setSelectedOrders([]);
+                    // Refresh orders list
+                    fetchOrders();
+                  } else {
+                    const errorMessage =
+                      result?.error ||
+                      result?.message ||
+                      "Failed to update order status";
+                    toast.error(errorMessage);
+                  }
+                } catch (err) {
+                  toast.error("Failed to update order status");
+                } finally {
+                  setIsChangingStatus(false);
+                }
+              }}
+            >
+              {isChangingStatus ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Status"
+              )}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            Change status for order:{" "}
+            <span className="font-medium">
+              {selectedOrderForAction
+                ? selectedOrderForAction
+                : selectedOrders.length === 1
+                  ? selectedOrders[0]
+                  : `${selectedOrders.length} selected orders`}
+            </span>
+          </p>
+
+          {/* Get available transitions for the order */}
+          {(() => {
+            const order = selectedOrderForAction
+              ? allOrders.find((o) => o.id === selectedOrderForAction)
+              : selectedOrders.length === 1
+                ? allOrders.find((o) => o.id === selectedOrders[0])
+                : null;
+            const transitions = order?.allowedTransitions || [];
+
+            return (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    New Status
+                  </label>
+                  <Select
+                    value={selectedStatusKey}
+                    onValueChange={setSelectedStatusKey}
+                    disabled={isChangingStatus}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select new status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transitions.length > 0 ? (
+                        transitions.map((transition) => (
+                          <SelectItem
+                            key={transition.key}
+                            value={transition.key}
+                          >
+                            {transition.label}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-sm text-gray-500 text-center">
+                          No status changes available for this order
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason
+                  </label>
+                  <textarea
+                    value={statusChangeReason}
+                    onChange={(e) => setStatusChangeReason(e.target.value)}
+                    placeholder="Enter reason for status change..."
+                    rows={3}
+                    className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+                    disabled={isChangingStatus}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your password to confirm
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showStatusChangePassword ? "text" : "password"}
+                      value={statusChangePassword}
+                      onChange={(e) => {
+                        setStatusChangePassword(e.target.value);
+                        if (statusChangeError) setStatusChangeError(null);
+                      }}
+                      placeholder="Your account password"
+                      className={cn(
+                        "h-11 pr-10",
+                        statusChangeError &&
+                          "border-red-500 focus:ring-red-500",
+                      )}
+                      disabled={isChangingStatus}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowStatusChangePassword(!showStatusChangePassword)
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      disabled={isChangingStatus}
+                    >
+                      {showStatusChangePassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                  {statusChangeError && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {statusChangeError}
+                    </p>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </CustomModal>
     </div>
