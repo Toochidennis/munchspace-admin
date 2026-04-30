@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -9,64 +9,80 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 const DAYS_OF_WEEK = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
+  { name: "Sunday", id: 0 },
+  { name: "Monday", id: 1 },
+  { name: "Tuesday", id: 2 },
+  { name: "Wednesday", id: 3 },
+  { name: "Thursday", id: 4 },
+  { name: "Friday", id: 5 },
+  { name: "Saturday", id: 6 },
 ];
 
-export default function DetailsTab() {
-  // Static data representing the vendor's settings
-  const workingHoursData = DAYS_OF_WEEK.reduce(
-    (acc, day) => ({
-      ...acc,
-      [day]: { enabled: day !== "Sunday", start: "08:00", end: "20:00" },
-    }),
-    {},
-  );
+export default function DetailsTab({ data }: { data?: any }) {
+  if (!data) return null;
 
-  const formatTime = (time: string) => {
-    if (!time) return "00:00 AM";
-    const [hours, minutes] = time.split(":");
-    const h = parseInt(hours);
-    const ampm = h >= 12 ? "PM" : "AM";
-    const formattedHours = h % 12 || 12;
-    return `${formattedHours}:${minutes} ${ampm}`;
+  const { vendor, businessInfo, payoutAccount, workingHours } = data;
+
+  const formatTimeStr = (isoString: string) => {
+    if (!isoString) return "00:00 AM";
+    try {
+      // In JS, date objects created from '1970-01-01T08:00:00.000Z' will be parsed in local time.
+      // Alternatively, we can use date-fns or slice
+      return format(new Date(isoString), "h:mm a");
+    } catch {
+      return "Invalid Time";
+    }
   };
+
+  const storeInfoFields = [
+    { label: "Store Name", value: businessInfo?.legalName || "N/A" },
+    { label: "Store Display Name", value: businessInfo?.displayName || "N/A" },
+    { label: "Email", value: businessInfo?.email || "N/A" },
+    { label: "Phone", value: businessInfo?.phone || "N/A" },
+    { 
+      label: "Established Date", 
+      value: businessInfo?.establishedAt 
+        ? format(new Date(businessInfo.establishedAt), "dd MMM, yyyy") 
+        : "N/A" 
+    },
+    {
+      label: "Store Address",
+      value: businessInfo?.contact 
+        ? [
+            businessInfo.contact.addressLine1,
+            businessInfo.contact.city,
+            businessInfo.contact.state,
+            businessInfo.contact.country
+          ].filter(Boolean).join(", ")
+        : "N/A",
+    },
+    { label: "Business Status", value: businessInfo?.status?.state || "N/A" },
+    { label: "Restaurant Type", value: businessInfo?.businessType || "N/A" },
+    { 
+      label: "Service Options", 
+      value: businessInfo?.serviceOperations?.length 
+        ? businessInfo.serviceOperations.map((s: any) => s.name).join(", ") 
+        : "N/A" 
+    },
+    { label: "Website", value: businessInfo?.onlinePresence?.website || "N/A" },
+    { label: "Store ID", value: businessInfo?.id || "N/A" },
+  ];
 
   return (
     <div className="space-y-6">
       {/* Store Information Card */}
       <Card className="p-4 border shadow-none rounded-xl bg-white">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">
           Store Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-y-10 gap-x-12">
-          {[
-            { label: "Store Name", value: "Bo Cafe" },
-            { label: "Store Display Name", value: "Bo Cafe" },
-            { label: "Email", value: "bocafe1600@gmail.com" },
-            { label: "Phone", value: "+123 456 7898" },
-            { label: "Established Date", value: "04 Aug, 2009" },
-            {
-              label: "Store Address",
-              value: "BLK 15 26 Ayoade Olubowale Cres. Lagos State",
-            },
-            { label: "Business Status", value: "Operational" },
-            { label: "Restaurant Type", value: "Casual Dining, Fast-Casual" },
-            { label: "Service Options", value: "Take-Out, Take-In, Delivery" },
-            { label: "Website", value: "N/A" },
-            { label: "Store Activation Code", value: "GH65TY" },
-          ].map((item, i) => (
+          {storeInfoFields.map((item, i) => (
             <div key={i}>
-              <p className="text-[11px] tracking-wider text-gray-400 font-semibold mb-2">
+              <p className="text-[11px] tracking-wider text-gray-400 font-semibold mb-2 uppercase">
                 {item.label}
               </p>
               <p className="text-sm font-semibold text-gray-900">
@@ -80,15 +96,15 @@ export default function DetailsTab() {
       {/* Bank Account */}
       <Card className="p-4 border shadow-none rounded-xl bg-white flex justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-13 h-13 bg-[#E86B35] rounded-lg flex items-center justify-center text-white font-semibold text-[10px] leading-tight text-center">
-            GT BANK
+          <div className="w-13 h-13 bg-[#E86B35] rounded-lg flex items-center justify-center text-white font-semibold text-[10px] leading-tight text-center px-2 min-w-[52px]">
+            {payoutAccount?.bankName ? payoutAccount.bankName.substring(0, 8).toUpperCase() : "BANK"}
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-900 mb-1">
-              Ayomide Joshua
+              {payoutAccount?.accountName || "N/A"}
             </p>
             <p className="text-xs text-gray-500 font-medium">
-              0123456789 (GTBank)
+              {payoutAccount?.accountNumber || "N/A"} ({payoutAccount?.bankName || "Unknown Bank"})
             </p>
           </div>
         </div>
@@ -104,33 +120,35 @@ export default function DetailsTab() {
             <AccordionContent className="pt-8 pb-0">
               <div className="space-y-3">
                 {DAYS_OF_WEEK.map((day) => {
-                  const data = (workingHoursData as any)[day];
+                  // Find the matching working hour config, fallback to disabled
+                  const data = workingHours?.find((wh: any) => wh.dayOfWeek === day.id) || null;
+                  const isEnabled = !!data;
 
                   return (
                     <div
-                      key={day}
+                      key={day.name}
                       className="flex items-center justify-between rounded-xl border border-gray-100 p-4"
                     >
                       <div className="flex items-center gap-4">
                         <Switch
-                          checked={data.enabled}
+                          checked={isEnabled}
                           disabled // Admin cannot toggle
                           className="data-[state=checked]:bg-[#E86B35] opacity-80 cursor-default"
                         />
                         <span
                           className={cn(
                             "font-semibold text-sm",
-                            data.enabled ? "text-gray-900" : "text-gray-400",
+                            isEnabled ? "text-gray-900" : "text-gray-400",
                           )}
                         >
-                          {day}
+                          {day.name}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {data.enabled ? (
+                        {isEnabled ? (
                           <span className="text-sm font-semibold text-gray-600">
-                            {formatTime(data.start)} - {formatTime(data.end)}
+                            {formatTimeStr(data.openingTime)} - {formatTimeStr(data.closingTime)}
                           </span>
                         ) : (
                           <span className="text-sm font-semibold text-red-400 tracking-tight">

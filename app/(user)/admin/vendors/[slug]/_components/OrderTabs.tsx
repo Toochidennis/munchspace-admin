@@ -1,7 +1,18 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, Filter, PackageSearch } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Search,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Filter,
+  PackageSearch,
+  Loader2,
+  X,
+  Download,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,66 +24,123 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-
-// Mock Data based on the image
-const MOCK_ORDERS = Array.from({ length: 85 }, (_, i) => ({
-  id: `#${1002 + i}`,
-  date: "Today at 9:58 pm",
-  customer: i % 3 === 0 ? "idrisjamo12@gmail.com" : "alex.smith@example.com",
-  totalPrice: "N7,500",
-  status: i === 1 ? "Completed" : i % 5 === 0 ? "Cancelled" : "Pending",
-  tabStatus: i % 6 === 0 ? "Awaiting Confirmation" : i % 6 === 1 ? "Awaiting Pickup" : i % 6 === 2 ? "Out for Delivery" : i % 6 === 3 ? "Delivered" : "Cancelled",
-  timestamp: new Date(Date.now() - (Math.floor(Math.random() * 10) * 24 * 60 * 60 * 1000)),
-}));
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 const TABS = [
-  "All",
-  "Awaiting Confirmation",
-  "Awaiting Pickup",
-  "Out for Delivery",
-  "Delivered",
-  "Cancelled"
+  { label: "All", key: "all" },
+  { label: "Pending Payment", key: "PENDING_PAYMENT" },
+  { label: "Awaiting Confirmation", key: "PENDING_CONFIRMATION" },
+  { label: "Preparing", key: "PREPARING" },
+  { label: "Ready for Pickup", key: "READY_FOR_PICKUP" },
+  { label: "Out for Delivery", key: "OUT_FOR_DELIVERY" },
+  { label: "Delivered", key: "COMPLETED" },
+  { label: "Cancelled", key: "CANCELLED" },
+  { label: "Rejected", key: "REJECTED" },
+  { label: "Returned", key: "RETURNED" },
 ];
 
-export default function OrdersTab() {
+export default function OrdersTab({ businessId }: { businessId?: string }) {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("All");
-  const [dateFilter, setDateFilter] = useState("7");
+  const [activeTab, setActiveTab] = useState("all");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Filters
+  const [paymentStatus, setPaymentStatus] = useState("all");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [amountQuery, setAmountQuery] = useState("");
+  const [dateRange, setDateRange] = useState<string>("all");
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusGroups, setStatusGroups] = useState<any[]>([]);
 
-  // Dynamic counts for tabs based on search and date filter
-  const tabCounts = useMemo(() => {
-    const baseFiltered = MOCK_ORDERS.filter((order) => {
-      const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           order.customer.toLowerCase().includes(searchQuery.toLowerCase());
-      const daysAgo = (Date.now() - order.timestamp.getTime()) / (1000 * 60 * 60 * 24);
-      return matchesSearch && daysAgo <= parseInt(dateFilter);
-    });
+  const fetchOrders = useCallback(async () => {
+    if (!businessId) return;
 
-    return {
-      All: baseFiltered.length,
-      "Awaiting Confirmation": baseFiltered.filter(o => o.tabStatus === "Awaiting Confirmation").length,
-      "Awaiting Pickup": baseFiltered.filter(o => o.tabStatus === "Awaiting Pickup").length,
-      "Out for Delivery": baseFiltered.filter(o => o.tabStatus === "Out for Delivery").length,
-      "Delivered": baseFiltered.filter(o => o.tabStatus === "Delivered").length,
-      "Cancelled": baseFiltered.filter(o => o.tabStatus === "Cancelled").length,
-    };
-  }, [searchQuery, dateFilter]);
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        businessId: businessId,
+      });
 
-  const filteredOrders = useMemo(() => {
-    return MOCK_ORDERS.filter((order) => {
-      const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           order.customer.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesTab = activeTab === "All" || order.tabStatus === activeTab;
-      const daysAgo = (Date.now() - order.timestamp.getTime()) / (1000 * 60 * 60 * 24);
-      return matchesSearch && matchesTab && daysAgo <= parseInt(dateFilter);
-    });
-  }, [searchQuery, activeTab, dateFilter]);
+      if (activeTab !== "all") {
+        params.append("status", activeTab);
+      }
+      if (searchQuery) {
+        params.append("search", searchQuery);
+      }
+      if (paymentStatus !== "all") {
+        params.set("paymentStatus", paymentStatus);
+      }
+      if (amountQuery) {
+        const amount = parseFloat(amountQuery);
+        if (!isNaN(amount)) {
+          params.set("amount", amount.toString());
+        }
+      }
+      
+      if (dateRange !== "all" && dateRange !== "" && dateRange !== "custom") {
+        params.set("range", dateRange);
+      } else if (startDate && endDate) {
+        params.set("startDate", startDate.toISOString());
+        params.set("endDate", endDate.toISOString());
+      }
 
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const currentItems = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+      const res = await authenticatedFetch(`/admin/orders?${params.toString()}`);
+      const apiRes = await parseApiResponse(res);
+      console.log(apiRes);
+
+      if (apiRes?.success) {
+        const fetchedOrders = apiRes.data.groups.flatMap((g: any) => g.orders);
+        setOrders(fetchedOrders);
+        setTotalOrders(apiRes.data.total || 0);
+        setTotalPages(apiRes.data.totalPages || 1);
+        setStatusGroups(apiRes.data.groups || []);
+      } else {
+        toast.error(apiRes?.message || "Failed to fetch orders");
+      }
+    } catch (err) {
+      toast.error("An error occurred while fetching orders");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    businessId,
+    currentPage,
+    itemsPerPage,
+    activeTab,
+    searchQuery,
+    paymentStatus,
+    amountQuery,
+    dateRange,
+    startDate,
+    endDate,
+  ]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeTab, paymentStatus, amountQuery, dateRange, startDate, endDate]);
 
   const getPageNumbers = () => {
     const pages = [];
@@ -80,76 +148,289 @@ export default function OrdersTab() {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
       if (currentPage <= 4) pages.push(1, 2, 3, 4, 5, "...", totalPages);
-      else if (currentPage > totalPages - 4) pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      else pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+      else if (currentPage > totalPages - 4)
+        pages.push(
+          1,
+          "...",
+          totalPages - 4,
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages,
+        );
+      else
+        pages.push(
+          1,
+          "...",
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          "...",
+          totalPages,
+        );
     }
     return pages;
   };
 
+  const getTabCount = (key: string) => {
+    if (key === "all") return totalOrders;
+    const group = statusGroups.find(
+      (g) => g.status.key.toUpperCase() === key.toUpperCase()
+    );
+    return group ? group.total : 0;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Payment expired":
+        return "bg-red-100 text-red-700";
+      case "Out for delivery":
+        return "bg-blue-100 text-blue-700";
+      case "Delivered":
+        return "bg-green-100 text-green-700";
+      case "Cancelled":
+        return "bg-gray-100 text-gray-700";
+      case "Rejected":
+        return "bg-orange-100 text-orange-700";
+      case "Pending payment":
+        return "bg-yellow-100 text-yellow-700";
+      case "Awaiting confirmation":
+        return "bg-purple-100 text-purple-700";
+      case "Preparing":
+        return "bg-indigo-100 text-indigo-700";
+      case "Ready for pickup":
+        return "bg-pink-100 text-pink-700";
+      case "Returned":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-[#FDB022] text-white";
+    }
+  };
+
+  const getPaymentStatusColor = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === "paid" || s === "successful" || s === "success") return "bg-green-100 text-green-700";
+    if (s === "failed" || s === "cancelled") return "bg-red-100 text-red-700";
+    if (s === "pending" || s === "initiated") return "bg-yellow-100 text-yellow-700";
+    return "bg-gray-100 text-gray-700";
+  };
+
   return (
     <div className="w-full">
-      <Card className="border border-gray-100 shadow-none rounded-xl bg-white p-6">
-        
+      <Card className="border border-gray-100 shadow-none rounded-xl bg-white p-6 space-y-6">
         {/* Header Row */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Total ({filteredOrders.length})</h2>
-          
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading...
+              </span>
+            ) : (
+              `Total (${totalOrders})`
+            )}
+          </h2>
+
           <div className="flex items-center gap-3">
             <div className="relative w-64">
               <Input
                 placeholder="Search"
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="h-10 border-gray-200 bg-white rounded-lg pr-10 focus-visible:ring-orange-500"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-10 border-gray-200 bg-white rounded-lg pl-10 focus-visible:ring-orange-500"
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
             </div>
-            
-            <Button variant="outline" className="h-10 border-gray-200 text-gray-600 gap-2 px-3 rounded-lg font-medium">
-              <Filter size={16} /> Filter <ChevronDown size={16} />
-            </Button>
 
-            <Select value={dateFilter} onValueChange={(v) => { setDateFilter(v); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[160px] h-10 border-gray-200 text-gray-600 font-medium rounded-lg">
-                <Calendar size={16} className="mr-2" />
-                <SelectValue placeholder="Select range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-3">
+              <Button variant="outline" className="h-10 border-gray-200">
+                <Download size={16} className="mr-2" /> Download
+              </Button>
+              <Button
+                variant={isFilterOpen ? "default" : "outline"}
+                className={cn(
+                  "h-10 border-gray-200",
+                  isFilterOpen && "bg-gray-900 text-white"
+                )}
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+              >
+                <Filter size={16} className="mr-2" /> Filter{" "}
+                {isFilterOpen && <X size={16} className="ml-2" />}
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Dynamic Tabs - Matches Image Labels & Logic */}
-        <div className="flex items-center gap-6 border-b border-gray-100 mb-0 overflow-x-auto no-scrollbar">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
-              className={cn(
-                "pb-4 text-sm font-medium transition-all relative whitespace-nowrap",
-                activeTab === tab ? "text-[#E86B35]" : "text-gray-400 hover:text-gray-600"
-              )}
+        {/* Filters Panel */}
+        {isFilterOpen && (
+          <div className="flex flex-wrap gap-3 items-center pb-4 border-b border-gray-100 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-2 px-3 h-10 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-600 font-medium">
+              <Filter size={16} /> Filter
+            </div>
+
+            <Select
+              value={dateRange}
+              onValueChange={(val) => {
+                setDateRange(val);
+                if (val !== "custom") {
+                  setStartDate(undefined);
+                  setEndDate(undefined);
+                }
+              }}
             >
-              {tab} {tabCounts[tab as keyof typeof tabCounts]}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#E86B35]" />
-              )}
-            </button>
-          ))}
+              <SelectTrigger className="w-[180px] h-10 border-gray-200 bg-white">
+                <SelectValue placeholder="Date range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                <SelectItem value="last_week">Last week</SelectItem>
+                <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                <SelectItem value="last_90_days">Last 90 days</SelectItem>
+                <SelectItem value="last_6_months">Last 6 months</SelectItem>
+                <SelectItem value="this_month">This month</SelectItem>
+                <SelectItem value="last_month">Last month</SelectItem>
+                <SelectItem value="this_year">This year</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+              <SelectTrigger className="w-[180px] h-10 border-gray-200 bg-white">
+                <SelectValue placeholder="Payment status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payment Status</SelectItem>
+                <SelectItem value="SUCCESS">Success</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="FAILED">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="Amount (₦)"
+              value={amountQuery}
+              onChange={(e) => setAmountQuery(e.target.value)}
+              className="w-[180px] h-10 border-gray-200 bg-white"
+            />
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[180px] h-10 border-gray-200 bg-white justify-start text-sm font-normal text-gray-500"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "dd/MM/yyyy") : "Start date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={(date) => {
+                    setStartDate(date);
+                    setDateRange("custom");
+                  }}
+                  disabled={(date) =>
+                    date > new Date() || date < new Date("1900-01-01")
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[180px] h-10 border-gray-200 bg-white justify-start text-sm font-normal text-gray-500"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "dd/MM/yyyy") : "End date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={(date) => {
+                    setEndDate(date);
+                    setDateRange("custom");
+                  }}
+                  disabled={(date) =>
+                    date > new Date() || date < new Date("1900-01-01")
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+
+        {/* Dynamic Tabs */}
+        <div className="flex items-center gap-6 border-b border-gray-100 mb-0 overflow-x-auto no-scrollbar">
+          {TABS.map((tab) => {
+            const count = getTabCount(tab.key);
+            // Hide tabs with 0 count except 'all' and currently active
+            if (count === 0 && tab.key !== "all" && activeTab !== tab.key)
+              return null;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                }}
+                className={cn(
+                  "pb-4 text-sm font-medium transition-all relative whitespace-nowrap",
+                  activeTab === tab.key
+                    ? "text-[#E86B35]"
+                    : "text-gray-400 hover:text-gray-600",
+                )}
+              >
+                {tab.label} ({count})
+                {activeTab === tab.key && (
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#E86B35]" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Table Content */}
         <div className="overflow-hidden min-h-[400px]">
-          {filteredOrders.length === 0 ? (
+          {isLoading && orders.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
+            </div>
+          ) : orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <PackageSearch className="text-gray-200 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900">No orders found</h3>
-              <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms.</p>
-              <Button variant="link" className="text-orange-500 mt-2" onClick={() => {setSearchQuery(""); setActiveTab("All");}}>Clear filters</Button>
+              <h3 className="text-lg font-semibold text-gray-900">
+                No orders found
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">
+                Try adjusting your filters or search terms.
+              </p>
+              <Button
+                variant="link"
+                className="text-orange-500 mt-2"
+                onClick={() => {
+                  setSearchQuery("");
+                  setActiveTab("all");
+                  setPaymentStatus("all");
+                  setAmountQuery("");
+                  setDateRange("all");
+                  setStartDate(undefined);
+                  setEndDate(undefined);
+                }}
+              >
+                Clear filters
+              </Button>
             </div>
           ) : (
             <table className="w-full text-sm text-left">
@@ -159,25 +440,45 @@ export default function OrdersTab() {
                   <th className="p-4 font-semibold text-gray-900">Date</th>
                   <th className="p-4 font-semibold text-gray-900">Customer</th>
                   <th className="p-4 font-semibold text-gray-900">Total Price</th>
-                  <th className="p-4 font-semibold text-gray-900">Payment status</th>
+                  <th className="p-4 font-semibold text-gray-900">Order Status</th>
+                  <th className="p-4 font-semibold text-gray-900">Payment Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {currentItems.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50/30 transition-colors">
-                    <td className="p-4 text-gray-900">{order.id}</td>
-                    <td className="p-4 text-gray-600">{order.date}</td>
-                    <td className="p-4 text-gray-600">{order.customer}</td>
-                    <td className="p-4 text-gray-900 font-medium">{order.totalPrice}</td>
+                {orders.map((order) => (
+                  <tr
+                    key={order.orderId}
+                    className="hover:bg-gray-50/30 transition-colors"
+                  >
+                    <td className="p-4 text-gray-900 font-medium">
+                      {order.orderCode}
+                    </td>
+                    <td className="p-4 text-gray-600">
+                      {format(new Date(order.createdAt), "eee, MMM d, yyyy, h:mm a")}
+                    </td>
+                    <td className="p-4 text-gray-600">{order.customerName}</td>
+                    <td className="p-4 text-gray-900 font-medium">
+                      ₦{order.totalAmount.toLocaleString()}
+                    </td>
                     <td className="p-4">
-                      <Badge className={cn(
-                        "border-none px-3 py-1 rounded text-[10px] font-medium transition-colors",
-                        order.status === "Completed" ? "bg-green-500 text-white" : 
-                        order.status === "Cancelled" ? "bg-red-500 text-white" : 
-                        "bg-[#FFB74D] text-white" // Pending orange
-                      )}>
-                        {order.status}
-                      </Badge>
+                      <span
+                        className={cn(
+                          "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap block w-full text-center max-w-[140px]",
+                          getStatusColor(order.status.label),
+                        )}
+                      >
+                        {order.status.label}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={cn(
+                          "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap block w-full text-center max-w-[140px]",
+                          getPaymentStatusColor(order.paymentStatus?.label || "unknown"),
+                        )}
+                      >
+                        {order.paymentStatus?.label || "Unknown"}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -186,14 +487,23 @@ export default function OrdersTab() {
           )}
         </div>
 
-        {/* Pagination Section - Same Structure as Items */}
-        {filteredOrders.length > 0 && (
+        {/* Pagination Section */}
+        {orders.length > 0 && (
           <div className="flex items-center justify-center gap-6 text-sm border-t pt-6">
             <p className="text-gray-500">
-              Total <span className="text-gray-900 font-medium">{filteredOrders.length} items</span>
+              Total{" "}
+              <span className="text-gray-900 font-medium">
+                {totalOrders} items
+              </span>
             </p>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
                 <ChevronLeft size={18} />
               </Button>
               <div className="flex items-center gap-1">
@@ -202,18 +512,37 @@ export default function OrdersTab() {
                     key={i}
                     variant={currentPage === page ? "default" : "ghost"}
                     size="sm"
-                    className={cn("h-8 w-8 rounded font-medium", currentPage === page ? "bg-orange-500 text-white hover:bg-orange-600" : "text-gray-500")}
-                    onClick={() => typeof page === "number" && setCurrentPage(page)}
+                    className={cn(
+                      "h-8 w-8 rounded font-medium",
+                      currentPage === page
+                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                        : "text-gray-500",
+                    )}
+                    onClick={() =>
+                      typeof page === "number" && setCurrentPage(page)
+                    }
                   >
                     {page}
                   </Button>
                 ))}
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
                 <ChevronRight size={18} />
               </Button>
             </div>
-            <Select value={`${itemsPerPage}`} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+            <Select
+              value={`${itemsPerPage}`}
+              onValueChange={(v) => {
+                setItemsPerPage(Number(v));
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
                 <SelectValue />
               </SelectTrigger>

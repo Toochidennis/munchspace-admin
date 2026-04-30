@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Paperclip, Copy, Check } from "lucide-react";
+import { Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -30,17 +31,17 @@ function CustomModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] animate-in fade-in duration-200"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative w-full bg-white shadow-xl overflow-hidden rounded-md animate-in zoom-in-95 duration-200",
+          "relative w-full bg-white shadow-xl overflow-hidden rounded-lg animate-in zoom-in-95 duration-200",
           maxWidth,
         )}
       >
-        <div className="flex border-b items-center justify-between px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <div className="flex border-b items-center justify-between px-6 py-5">
+          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <button
             className="text-gray-400 hover:text-gray-600 transition-colors"
             onClick={onClose}
@@ -50,7 +51,7 @@ function CustomModal({
         </div>
         <div className="p-6 max-h-[75vh] overflow-y-auto">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50/30">
             {footer}
           </div>
         )}
@@ -59,134 +60,102 @@ function CustomModal({
   );
 }
 
-// --- Types ---
-type DocStatus =
-  | "Verified"
-  | "Rejected"
-  | "Required"
-  | "In Review"
-  | "Incomplete"
-  | "Pending Submission";
+type DocStatus = "Verified" | "Rejected" | "Required" | "In Review" | "Incomplete" | "Pending Submission";
 
-interface KYCDocument {
-  id: string;
-  title: string;
-  description: string;
-  status: DocStatus;
-  files?: { name: string; date: string }[];
-  tin?: string;
-}
-
-export default function KYCDocumentsTab() {
-  const [documents, setDocuments] = useState<KYCDocument[]>([
+export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
+  const [documents, setDocuments] = useState([
     {
-      id: "cac",
-      title: "CAC Documents",
-      description: "Business registration verification (CAC)",
-      status: "In Review",
+      id: "photo",
+      title: "Vehicle Photo",
+      description: "Clear photo of the rider's vehicle.",
+      status: "Pending Submission" as DocStatus,
       files: [
-        { name: "document_001.png", date: "Aug 20, 2024 • 8:45 PM" },
-        { name: "document_011.png", date: "Aug 20, 2024 • 8:45 PM" },
+        { name: "front_view.png", date: "Aug 20, 2024 • 8:45 PM" },
+        { name: "side_view.png", date: "Aug 20, 2024 • 8:45 PM" },
+        { name: "rear_view.png", date: "Aug 20, 2024 • 8:45 PM" },
       ],
     },
     {
-      id: "owner_id",
-      title: "Owner/Signatory ID",
-      description: "Business ownership/signature Id",
-      status: "Pending Submission",
-    },
-    {
-      id: "health_safety",
-      title: "Food/Health Safety Certificate",
-      description: "Business food/health certificate",
-      status: "Rejected",
-      files: [{ name: "document_001.png", date: "Aug 20, 2024 • 8:45 PM" }],
-    },
-    {
-      id: "tin",
-      title: "Tax Identification Number (TIN)",
-      description: "Business tax identification number",
-      status: "Verified",
-      tin: "01234567896",
-    },
+      id: "docs",
+      title: "Vehicle Documents",
+      description: "All required vehicle documents",
+      status: "Rejected" as DocStatus,
+      files: [
+        { name: "document_001.png", date: "Aug 20, 2024 • 8:45 PM" },
+        { name: "document_001.png", date: "Aug 20, 2024 • 8:45 PM" },
+      ],
+    }
   ]);
 
-  const [selectedDoc, setSelectedDoc] = useState<KYCDocument | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
-
-  // Form State
-  const [statusValue, setStatusValue] = useState<DocStatus>("Verified");
+  const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [statusValue, setStatusValue] = useState<DocStatus>("Incomplete");
   const [vendorMessage, setVendorMessage] = useState("");
   const [internalNote, setInternalNote] = useState("");
-  const [errors, setErrors] = useState<{ message?: string; note?: string }>({});
 
-  const handleOpenModal = (doc: KYCDocument) => {
+  const handleOpenModal = (doc: any) => {
     setSelectedDoc(doc);
-    setStatusValue(
-      doc.status === "Pending Submission" ? "In Review" : doc.status,
-    );
+    setStatusValue(doc.status === "Pending Submission" ? "In Review" : doc.status);
     setVendorMessage("");
     setInternalNote("");
-    setErrors({});
-    setModalOpen(true);
+    setIsModalOpen(true);
   };
 
-  const handleSubmit = () => {
-    const newErrors: { message?: string; note?: string } = {};
-    if (statusValue !== "Verified" && !vendorMessage.trim()) {
-      newErrors.message = "Message to vendor is required";
-    }
-    if (!internalNote.trim()) {
-      newErrors.note = "Internal note is required";
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setDocuments((prev) =>
-      prev.map((d) =>
-        d.id === selectedDoc?.id ? { ...d, status: statusValue } : d,
-      ),
-    );
-
-    toast.success(`Document marked as ${statusValue}`);
-    setModalOpen(false);
+  const handleSave = () => {
+    setDocuments(prev => prev.map(d => d.id === selectedDoc.id ? { ...d, status: statusValue } : d));
+    toast.success("Document status updated");
+    setIsModalOpen(false);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Vehicle Information */}
+      <Card className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white">
+        <h3 className="text-lg font-bold text-gray-900 mb-6">
+          Vehicle Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-y-10 gap-x-12">
+          {[
+            { label: "Vehicle Type", value: "Motocycle" },
+            { label: "Vehicle Make", value: "Toyota" },
+            { label: "License Plate Number", value: "AD-1450 MM" },
+            { label: "Phone Line 1", value: "+123 456 7898" },
+            { label: "Phone Line 2", value: "+123 456 7898" },
+          ].map((item, i) => (
+            <div key={i}>
+              <p className="text-[11px] tracking-wider text-gray-400 font-bold mb-2 uppercase">
+                {item.label}
+              </p>
+              <p className="text-sm font-bold text-gray-900">
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Document Cards */}
       {documents.map((doc) => (
-        <Card
-          key={doc.id}
-          className="p-6 border-gray-100 shadow-none rounded-md"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div>
+        <Card key={doc.id} className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white">
+          <div className="flex items-start justify-between mb-6">
+            <div className="space-y-1">
               <h3 className="text-lg font-bold text-gray-900">{doc.title}</h3>
-              <p className="text-sm text-gray-500">{doc.description}</p>
+              <p className="text-sm text-gray-400 font-medium">{doc.description}</p>
             </div>
             <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "text-[12px] px-2.5 py-1 rounded-md font-medium",
-                  doc.status === "Verified" && "bg-green-50 text-green-700",
-                  doc.status === "In Review" && "bg-gray-100 text-gray-700",
-                  doc.status === "Pending Submission" &&
-                    "bg-blue-50 text-blue-600",
-                  (doc.status === "Rejected" || doc.status === "Required") &&
-                    "bg-red-50 text-red-600",
-                  doc.status === "Incomplete" && "bg-orange-50 text-orange-700",
-                )}
-              >
+              <Badge className={cn(
+                "border-none px-3 py-1 rounded-md text-[10px] font-bold transition-colors",
+                doc.status === "Pending Submission" ? "bg-blue-50 text-blue-500" : 
+                doc.status === "Rejected" ? "bg-red-50 text-red-500" :
+                doc.status === "Verified" ? "bg-green-50 text-green-500" :
+                doc.status === "Incomplete" ? "bg-orange-50 text-orange-500" : "bg-gray-50 text-gray-500"
+              )}>
                 {doc.status}
-              </span>
+              </Badge>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-semibold rounded-md"
+                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-bold rounded-md px-4"
                 onClick={() => handleOpenModal(doc)}
               >
                 Mark document as...
@@ -194,70 +163,49 @@ export default function KYCDocumentsTab() {
             </div>
           </div>
 
-          {doc.files && doc.files.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-400">
-                Submitted docs:
-              </p>
-              <div className="grid grid-cols-1 gap-2">
-                {doc.files.map((file, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-4 bg-gray-50/50 border border-gray-100 p-2.5 rounded-md w-fit min-w-[340px]"
-                  >
-                    <div className="flex items-center gap-2 text-blue-500 hover:underline cursor-pointer">
-                      <Paperclip size={14} />
-                      <span className="text-sm font-medium">{file.name}</span>
-                    </div>
-                    <span className="text-[12px] text-gray-400">
-                      Uploaded on: {file.date}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {doc.tin && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-400">
-                Submitted TIN:
-              </p>
-              <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 p-2.5 rounded-md w-fit">
-                <span className="text-sm font-medium text-gray-700">
-                  {doc.tin}
-                </span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(doc.tin!);
-                    toast.success("Copied!");
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mb-2">
+              Submitted docs:
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              {doc.files.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-6 bg-[#F9FAFB] border border-gray-100 p-2.5 rounded-lg w-fit min-w-[400px]"
                 >
-                  <Copy size={16} />
-                </button>
-              </div>
+                  <div className="flex items-center gap-2 text-blue-500 hover:underline cursor-pointer">
+                    <Paperclip size={14} className="text-gray-400" />
+                    <span className="text-xs font-bold">{file.name}</span>
+                  </div>
+                  <div className="w-[1px] h-3 bg-gray-200" />
+                  <span className="text-[10px] text-gray-400 font-medium">
+                    Uploaded on: {file.date}
+                  </span>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </Card>
       ))}
 
+      {/* Mark Document Modal */}
       <CustomModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title="Mark document as..."
+        maxWidth="sm:max-w-[500px]"
         footer={
           <>
-            <Button
-              variant="outline"
-              onClick={() => setModalOpen(false)}
-              className="h-10 border-gray-200 rounded-md"
+            <Button 
+              variant="outline" 
+              onClick={() => setIsModalOpen(false)}
+              className="h-10 rounded-md border-gray-200 font-bold text-gray-600 px-6"
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
-              className="h-10 px-8 bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-md"
+            <Button 
+              onClick={handleSave}
+              className="h-10 rounded-md bg-[#E86B35] hover:bg-[#d15d2c] text-white font-bold px-8"
             >
               Submit
             </Button>
@@ -265,87 +213,43 @@ export default function KYCDocumentsTab() {
         }
       >
         <div className="space-y-6">
-          <div className="space-y-4">
-            <p className="text-sm text-gray-700">
-              Mark{" "}
-              <span className="font-bold">
-                Sushi Place {selectedDoc?.title}
-              </span>{" "}
-              as..
-            </p>
-            <RadioGroup
-              value={statusValue}
-              onValueChange={(v) => setStatusValue(v as DocStatus)}
-              className="space-y-3"
-            >
-              {[
-                "Verified",
-                "Rejected",
-                "Required",
-                "In Review",
-                "Incomplete",
-              ].map((s) => (
-                <div key={s} className="flex items-center space-x-3">
-                  <RadioGroupItem
-                    value={s}
-                    id={s}
-                    className="border-gray-300 text-[#E86B35] focus:ring-[#E86B35]"
-                  />
-                  <Label
-                    htmlFor={s}
-                    className="text-sm font-medium text-gray-700 cursor-pointer"
-                  >
-                    {s}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
+          <p className="text-sm text-gray-700">
+            Mark <span className="font-bold">James Lanko {selectedDoc?.title}</span> as..
+          </p>
+
+          <RadioGroup value={statusValue} onValueChange={(v) => setStatusValue(v as DocStatus)} className="space-y-4">
+            {["Verified", "Rejected", "Required", "In Review", "Incomplete"].map((s) => (
+              <div key={s} className="flex items-center space-x-3">
+                <RadioGroupItem value={s} id={s} className="border-gray-300 text-[#E86B35]" />
+                <Label htmlFor={s} className="text-sm font-bold text-gray-700 cursor-pointer">{s}</Label>
+              </div>
+            ))}
+          </RadioGroup>
 
           {statusValue !== "Verified" && (
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-gray-700">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-500">
                 Message to Vendor <span className="text-red-500">*</span>
-              </Label>
+              </label>
               <Textarea
+                placeholder={statusValue === "Incomplete" ? "This message will be included in the email sent to the vendor. e.g. The CAC document uploaded is incomplete. Please provide the full registration certificate showing the company name and RC number." : "Explain why the document was not verified..."}
                 value={vendorMessage}
-                onChange={(e) => {
-                  setVendorMessage(e.target.value);
-                  setErrors((p) => ({ ...p, message: "" }));
-                }}
-                className={cn(
-                  "min-h-[100px] border-gray-200 rounded-md focus-visible:ring-[#E86B35]",
-                  errors.message && "border-red-500",
-                )}
-                placeholder="Explain why the document was not verified..."
+                onChange={(e) => setVendorMessage(e.target.value)}
+                className="min-h-[120px] border-gray-200 rounded-lg text-sm placeholder:text-gray-400 italic"
               />
-              {errors.message && (
-                <p className="text-xs text-red-500 font-medium">
-                  {errors.message}
-                </p>
-              )}
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label className="text-sm font-semibold text-gray-700">
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-gray-500">
               Internal Note <span className="text-red-500">*</span>
-            </Label>
+            </label>
             <Textarea
+              placeholder={statusValue === "Incomplete" ? "For internal records. Not visible to the vendor. Briefly explain why you’re updating James Lanko's CAC documents" : "Briefly explain this update..."}
               value={internalNote}
-              onChange={(e) => {
-                setInternalNote(e.target.value);
-                setErrors((p) => ({ ...p, note: "" }));
-              }}
-              className={cn(
-                "min-h-[100px] border-gray-200 rounded-md focus-visible:ring-[#E86B35]",
-                errors.note && "border-red-500",
-              )}
-              placeholder="Briefly explain this update..."
+              onChange={(e) => setInternalNote(e.target.value)}
+              className="min-h-[120px] border-gray-200 rounded-lg text-sm placeholder:text-gray-400 italic"
             />
-            {errors.note && (
-              <p className="text-xs text-red-500 font-medium">{errors.note}</p>
-            )}
           </div>
         </div>
       </CustomModal>

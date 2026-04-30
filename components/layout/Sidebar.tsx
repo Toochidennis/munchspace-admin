@@ -15,6 +15,8 @@ import {
   Settings,
   LogOut,
   Motorbike,
+  CreditCard,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,16 @@ export function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       icon: <ShoppingBag size={22} />,
       label: "Orders",
       href: "/admin/orders",
+    },
+    {
+      icon: <CreditCard size={22} />,
+      label: "Payments",
+      href: "/admin/payments",
+    },
+    {
+      icon: <Wallet size={22} />,
+      label: "Payouts",
+      href: "/admin/payouts",
     },
     { icon: <Store size={22} />, label: "Vendors", href: "/admin/vendors" },
     { icon: <Motorbike size={22} />, label: "Riders", href: "/admin/riders" },

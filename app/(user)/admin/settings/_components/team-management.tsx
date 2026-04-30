@@ -10,7 +10,10 @@ import {
   ChevronRight,
   X,
   Info,
+  Loader2,
 } from "lucide-react";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,39 +42,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const INITIAL_TEAM = Array.from({ length: 85 }, (_, i) => ({
-  id: i + 1,
-  firstName: [
-    "Lela",
-    "Rex",
-    "Teresa",
-    "Sammuel",
-    "Beth",
-    "Johnnie",
-    "Candace",
-    "Blake",
-    "Levi",
-    "John",
-  ][i % 10],
-  lastName: [
-    "Mraz",
-    "Rowe",
-    "Hane",
-    "Kirlin",
-    "Fritsch",
-    "Beahan",
-    "Hilpert",
-    "Legros",
-    "Orn",
-    "Marsh",
-  ][i % 10],
-  role:
-    i % 3 === 0 ? "Admin" : i % 3 === 1 ? "Vendor Manager" : "Order Manager",
-  workEmail: `work${i + 1}@munchspace.com`,
-  personalEmail: `user${i + 1}@gmail.com`,
-  phone: "080 1244 7851",
-  lastLoggedIn: "Tue Dec 03 2024 14:42:24",
-}));
+
 
 function CustomModal({
   isOpen,
@@ -122,7 +93,8 @@ function CustomModal({
 }
 
 export function TeamManagement() {
-  const [members, setMembers] = React.useState(INITIAL_TEAM);
+  const [members, setMembers] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
   const [itemsPerPage, setItemsPerPage] = React.useState(10);
@@ -142,6 +114,55 @@ export function TeamManagement() {
     role: "",
   });
 
+  const [availableRoles, setAvailableRoles] = React.useState<any[]>([]);
+  const [isCreating, setIsCreating] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [notifyOnDelete, setNotifyOnDelete] = React.useState(true);
+
+  const fetchMembers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await authenticatedFetch("/admin/settings/team/members");
+      const result = await parseApiResponse(res);
+      if (result?.success) {
+        const mappedMembers = result.data.map((m: any) => ({
+          id: m.id,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          workEmail: m.email,
+          personalEmail: "",
+          phone: m.phone,
+          role: m.roles?.[0]?.label || "Member",
+          lastLoggedIn: m.lastLoginAt ? new Date(m.lastLoginAt).toLocaleString() : "-",
+        }));
+        setMembers(mappedMembers);
+      } else {
+        toast.error(result?.message || "Failed to fetch team members");
+      }
+    } catch (err) {
+      toast.error("An error occurred while fetching team members");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const res = await authenticatedFetch("/admin/settings/team/roles");
+      const result = await parseApiResponse(res);
+      if (result?.success) {
+        setAvailableRoles(result.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchMembers();
+    fetchRoles();
+  }, []);
+
   const validate = (data: any) => {
     const newErrors: Record<string, string> = {};
     if (!data.firstName) newErrors.firstName = "First name is required";
@@ -151,18 +172,56 @@ export function TeamManagement() {
     return newErrors;
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const formErrors = validate(newMemberData);
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
       return;
     }
-    setMembers([
-      { ...newMemberData, id: Date.now(), lastLoggedIn: "Never" } as any,
-      ...members,
-    ]);
-    setIsNewModalOpen(false);
-    setErrors({});
+    
+    setIsCreating(true);
+    try {
+      const formattedPhone = newMemberData.phone.startsWith("0") 
+        ? "+234" + newMemberData.phone.substring(1) 
+        : newMemberData.phone.startsWith("+234") 
+          ? newMemberData.phone 
+          : "+234" + newMemberData.phone;
+
+      const payload = {
+        firstName: newMemberData.firstName,
+        lastName: newMemberData.lastName,
+        email: newMemberData.workEmail,
+        phone: formattedPhone,
+        roles: [newMemberData.role]
+      };
+      
+      const res = await authenticatedFetch("/admin/settings/team/members", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      const result = await parseApiResponse(res);
+      
+      if (result?.success) {
+        toast.success("Team member added successfully");
+        fetchMembers(); // refresh
+        setIsNewModalOpen(false);
+        setNewMemberData({
+          firstName: "",
+          lastName: "",
+          workEmail: "",
+          personalEmail: "",
+          phone: "",
+          role: "",
+        });
+        setErrors({});
+      } else {
+        toast.error(result?.message || "Failed to add team member");
+      }
+    } catch (err) {
+      toast.error("An error occurred while adding member");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleUpdate = () => {
@@ -174,6 +233,33 @@ export function TeamManagement() {
     setMembers(members.map((m) => (m.id === editMember.id ? editMember : m)));
     setEditMember(null);
     setErrors({});
+  };
+
+  const handleDelete = async () => {
+    if (!deleteMember) return;
+    setIsDeleting(true);
+    try {
+      const res = await authenticatedFetch(
+        `/admin/settings/team/members/${deleteMember.id}?notify=${notifyOnDelete}`,
+        {
+          method: "DELETE",
+          body: JSON.stringify({}),
+        }
+      );
+      const result = await parseApiResponse(res);
+      console.log(result);
+      if (result?.success) {
+        toast.success("Team member removed successfully");
+        setMembers(members.filter((m) => m.id !== deleteMember.id));
+        setDeleteMember(null);
+      } else {
+        toast.error(result?.message || "Failed to remove team member");
+      }
+    } catch (err) {
+      toast.error("An error occurred while removing team member");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredMembers = members.filter(
@@ -258,8 +344,13 @@ export function TeamManagement() {
           </Button>
         </div>
 
-        <div className="overflow-hidden rounded border border-gray-100 mb-8">
-          <Table>
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-[#E86B35]" />
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded border border-gray-100 mb-8">
+            <Table>
             <TableHeader className="bg-gray-50/50">
               <TableRow>
                 <TableHead className="text-xs font-bold py-4">
@@ -333,6 +424,7 @@ export function TeamManagement() {
             </TableBody>
           </Table>
         </div>
+        )}
 
         {/* PAGINATION SECTION */}
         <div className="flex items-center justify-center gap-6 text-sm border-t pt-6">
@@ -418,7 +510,9 @@ export function TeamManagement() {
             <Button
               className="bg-munchprimary hover:bg-munchprimaryDark text-white px-8 rounded h-11"
               onClick={handleCreate}
+              disabled={isCreating}
             >
+              {isCreating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Add new member
             </Button>
           </>
@@ -553,9 +647,9 @@ export function TeamManagement() {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Admin">Admin</SelectItem>
-                  <SelectItem value="Vendor Manager">Vendor Manager</SelectItem>
-                  <SelectItem value="Order Manager">Order Manager</SelectItem>
+                  {availableRoles.map(role => (
+                    <SelectItem key={role.key} value={role.key}>{role.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.role && (
@@ -769,11 +863,12 @@ export function TeamManagement() {
             </Button>
             <Button
               className="bg-munchred hover:bg-red-700 text-white px-8 rounded h-11"
-              onClick={() => {
-                setMembers(members.filter((m) => m.id !== deleteMember.id));
-                setDeleteMember(null);
-              }}
+              disabled={isDeleting}
+              onClick={handleDelete}
             >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               Remove member
             </Button>
           </>
@@ -795,10 +890,11 @@ export function TeamManagement() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Checkbox
+               <Checkbox
                 id="notify-del"
                 className="rounded border-munchprimary data-[state=checked]:bg-munchprimary"
-                defaultChecked
+                checked={notifyOnDelete}
+                onCheckedChange={(checked) => setNotifyOnDelete(!!checked)}
               />
               <Label
                 htmlFor="notify-del"

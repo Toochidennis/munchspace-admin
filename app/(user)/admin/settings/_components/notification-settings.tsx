@@ -19,28 +19,62 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 
-const NOTIF_DATA = {
-  customer: [
-    { id: "c1", title: "Order Confirmation", email: true },
-    { id: "c2", title: "Payment Received", email: true },
-    { id: "c3", title: "Order Shipped", email: true },
-    { id: "c4", title: "Delivery Date Scheduled", email: true },
-    { id: "c5", title: "Order Delivered", email: true },
-    { id: "c6", title: "Order Cancelled", email: false },
-  ],
-  vendor: [
-    { id: "v1", title: "New Order Alert", email: true },
-    { id: "v2", title: "Payout Processed", email: true },
-    { id: "v3", title: "Low Stock Warning", email: true },
-  ],
-  admin: [
-    { id: "a1", title: "New Vendor Registration", email: true },
-    { id: "a2", title: "Critical System Errors", email: true },
-  ],
-};
+interface NotificationChannel {
+  email?: boolean;
+  push?: boolean;
+  sms?: boolean;
+}
+
+interface NotificationItem {
+  key: string;
+  label: string;
+  isCritical: boolean;
+  channels: NotificationChannel;
+}
+
+interface NotificationData {
+  customer: NotificationItem[];
+  vendor: NotificationItem[];
+  admin: NotificationItem[];
+}
+
+
 
 export function NotificationSettings() {
+  const [notifData, setNotifData] = React.useState<NotificationData | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const fetchSettings = async () => {
+    setIsLoading(true);
+    try {
+      const res = await authenticatedFetch("/admin/settings/notifications");
+      const result = await parseApiResponse(res);
+      if (result?.success) {
+        setNotifData(result.data);
+      } else {
+        toast.error("Failed to fetch notification settings");
+      }
+    } catch (error) {
+      toast.error("An error occurred while fetching settings");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-munchprimary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <CardHeader className="px-0 flex flex-row items-center justify-between mt-5 mb-12">
@@ -57,20 +91,23 @@ export function NotificationSettings() {
 
       <div className="space-y-4">
         <NotificationAccordion
+          role="customer"
           title="Customer Notifications"
           description="Set up alerts to keep vendors updated on orders, payments, and inventory changes."
-          initialData={NOTIF_DATA.customer}
+          initialData={notifData?.customer || []}
           defaultOpen
         />
         <NotificationAccordion
+          role="vendor"
           title="Vendor Notifications"
           description="Set up alerts for vendors regarding orders and stock."
-          initialData={NOTIF_DATA.vendor}
+          initialData={notifData?.vendor || []}
         />
         <NotificationAccordion
+          role="admin"
           title="Admin Notifications"
           description="Configure critical notifications to keep admins informed about platform activity and approvals."
-          initialData={NOTIF_DATA.admin}
+          initialData={notifData?.admin || []}
         />
       </div>
     </div>
@@ -78,40 +115,65 @@ export function NotificationSettings() {
 }
 
 function NotificationAccordion({
+  role,
   title,
   description,
   initialData,
   defaultOpen = false,
 }: any) {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
-  const [data, setData] = React.useState(initialData);
+  const [data, setData] = React.useState<NotificationItem[]>(initialData);
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
 
-  // Simulated API Call Logic
-  const handleToggle = async (id: string, currentEmail: boolean) => {
-    setLoadingId(id);
+  // Get all unique channels across all items in this group
+  const channels = React.useMemo(() => {
+    const keys = new Set<keyof NotificationChannel>();
+    data.forEach((item) => {
+      Object.keys(item.channels).forEach((k) => keys.add(k as any));
+    });
+    return Array.from(keys);
+  }, [data]);
+
+  const handleToggle = async (key: string, channel: keyof NotificationChannel, currentValue: boolean) => {
+    const loaderKey = `${key}-${channel}`;
+    setLoadingId(loaderKey);
 
     try {
-      // Simulate network latency
-      await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate 5% failure rate for testing
-          if (Math.random() > 0.05) {
-            resolve(true);
-          } else {
-            reject(new Error("Update failed"));
-          }
-        }, 800);
+      const item = data.find((it) => it.key === key);
+      if (!item) return;
+
+      const payload = {
+        actorType: role,
+        eventKey: key,
+        ...item.channels,
+        [channel]: !currentValue,
+      };
+
+      const res = await authenticatedFetch("/admin/settings/notifications", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
       });
 
-      // Update local UI state
-      setData((prev: any) =>
-        prev.map((item: any) =>
-          item.id === id ? { ...item, email: !currentEmail } : item,
-        ),
-      );
+      const result = await parseApiResponse(res);
 
-      toast.success(`${title} preference updated`);
+      if (result?.success) {
+        setData((prev) =>
+          prev.map((item) =>
+            item.key === key
+              ? {
+                  ...item,
+                  channels: {
+                    ...item.channels,
+                    [channel]: !currentValue,
+                  },
+                }
+              : item
+          )
+        );
+        toast.success(`${title} preference updated`);
+      } else {
+        toast.error(result?.message || "Failed to update preference");
+      }
     } catch (error) {
       toast.error("Unable to update setting. Please check your connection.");
     } finally {
@@ -149,37 +211,54 @@ function NotificationAccordion({
             <TableHeader className="bg-gray-100 border-b">
               <TableRow className="hover:bg-transparent border-none">
                 <TableHead className="text-sm border-r-2 font-semibold tracking-widest h-12 px-6">
-                  Order Updates
+                  Updates
                 </TableHead>
-                <TableHead className="text-sm font-semibold tracking-widest h-12 px-6 text-">
-                  Email
-                </TableHead>
+                {channels.map((channel) => (
+                  <TableHead key={channel} className="text-sm font-semibold capitalize tracking-widest h-12 px-6">
+                    {channel}
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.map((item: any) => (
                 <TableRow
-                  key={item.id}
+                  key={item.key}
                   className="hover:bg-slate-50/30 border-none last:border-0 h-13"
                 >
                   <TableCell className="px-6 font-semibold border-r-2 text-slate-700 text-sm w-2/4">
-                    {item.title}
+                    {item.label}
+                    {item.isCritical && (
+                      <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-bold">CRITICAL</span>
+                    )}
                   </TableCell>
-                  <TableCell className="px-6">
-                    <div className="flex items-center gap-3">
-                      {loadingId === item.id && (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                      )}
-                      <Switch
-                        checked={item.email}
-                        disabled={loadingId === item.id}
-                        className="data-[state=checked]:bg-munchprimary"
-                        onCheckedChange={() =>
-                          handleToggle(item.id, item.email)
-                        }
-                      />
-                    </div>
-                  </TableCell>
+                  {channels.map((channel) => {
+                    const isActive = item.channels[channel];
+                    const isPresent = channel in item.channels;
+                    const loaderKey = `${item.key}-${channel}`;
+
+                    return (
+                      <TableCell key={channel} className="px-6">
+                        <div className="flex items-center gap-3">
+                          {loadingId === loaderKey && (
+                            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                          )}
+                          {isPresent ? (
+                            <Switch
+                              checked={isActive}
+                              disabled={loadingId !== null}
+                              className="data-[state=checked]:bg-munchprimary"
+                              onCheckedChange={() =>
+                                handleToggle(item.key, channel, !!isActive)
+                              }
+                            />
+                          ) : (
+                            <span className="text-xs text-slate-300">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableBody>

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Paperclip, Copy, Check } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Paperclip, Copy, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 
 // --- Custom Modal Component ---
 function CustomModal({
@@ -73,68 +75,82 @@ interface KYCDocument {
   title: string;
   description: string;
   status: DocStatus;
-  files?: { name: string; date: string }[];
+  files?: { name: string; date: string; url?: string }[];
   tin?: string;
+  ownerType?: string;
 }
 
-export default function KYCDocumentsTab() {
-  const [documents, setDocuments] = useState<KYCDocument[]>([
-    {
-      id: "cac",
-      title: "CAC Documents",
-      description: "Business registration verification (CAC)",
-      status: "In Review",
-      files: [
-        { name: "document_001.png", date: "Aug 20, 2024 • 8:45 PM" },
-        { name: "document_011.png", date: "Aug 20, 2024 • 8:45 PM" },
-      ],
-    },
-    {
-      id: "owner_id",
-      title: "Owner/Signatory ID",
-      description: "Business ownership/signature Id",
-      status: "Pending Submission",
-    },
-    {
-      id: "health_safety",
-      title: "Food/Health Safety Certificate",
-      description: "Business food/health certificate",
-      status: "Rejected",
-      files: [{ name: "document_001.png", date: "Aug 20, 2024 • 8:45 PM" }],
-    },
-    {
-      id: "tin",
-      title: "Tax Identification Number (TIN)",
-      description: "Business tax identification number",
-      status: "Verified",
-      tin: "01234567896",
-    },
-  ]);
+export default function KYCDocumentsTab({ businessId }: { businessId?: string }) {
+  const [documents, setDocuments] = useState<KYCDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (!businessId) return;
+      try {
+        setIsLoading(true);
+        const res = await authenticatedFetch(`/admin/businesses/${businessId}/documents`);
+        const result = await parseApiResponse(res);
+        if (result?.success) {
+          const apiDocs = result.data.documents.map((doc: any) => {
+            const files = [];
+            if (doc.inputType === "FILE" && doc.fileUrl) {
+              files.push({
+                name: doc.fileUrl.split('/').pop() || "Document",
+                url: doc.fileUrl,
+                date: doc.uploadedAt ? format(new Date(doc.uploadedAt), "MMM d, yyyy • h:mm a") : "",
+              });
+            }
+            
+            let statusValue = doc.status?.label || "Pending Submission";
+            if (statusValue === "Pending Review") statusValue = "In Review";
+
+            return {
+              id: doc.id,
+              title: doc.name,
+              description: doc.description,
+              status: statusValue as DocStatus,
+              files: files.length > 0 ? files : undefined,
+              tin: doc.inputType === "TEXT" ? doc.value : undefined, // Assuming text might be TIN, adjust if needed
+              ownerType: doc.ownerType || "BUSINESS",
+            };
+          });
+          setDocuments(apiDocs);
+        }
+      } catch (err) {
+        toast.error("Failed to fetch documents");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDocuments();
+  }, [businessId]);
 
   const [selectedDoc, setSelectedDoc] = useState<KYCDocument | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
   // Form State
-  const [statusValue, setStatusValue] = useState<DocStatus>("Verified");
+  const [actionValue, setActionValue] = useState<"Approve" | "Reject">("Approve");
   const [vendorMessage, setVendorMessage] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [errors, setErrors] = useState<{ message?: string; note?: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleOpenModal = (doc: KYCDocument) => {
     setSelectedDoc(doc);
-    setStatusValue(
-      doc.status === "Pending Submission" ? "In Review" : doc.status,
-    );
+    setActionValue("Approve");
     setVendorMessage("");
     setInternalNote("");
     setErrors({});
     setModalOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!selectedDoc) return;
+    
     const newErrors: { message?: string; note?: string } = {};
-    if (statusValue !== "Verified" && !vendorMessage.trim()) {
+    if (actionValue === "Reject" && !vendorMessage.trim()) {
       newErrors.message = "Message to vendor is required";
     }
     if (!internalNote.trim()) {
@@ -146,15 +162,58 @@ export default function KYCDocumentsTab() {
       return;
     }
 
-    setDocuments((prev) =>
-      prev.map((d) =>
-        d.id === selectedDoc?.id ? { ...d, status: statusValue } : d,
-      ),
-    );
+    try {
+      setIsSubmitting(true);
+      const endpoint = actionValue === "Approve" 
+        ? `/admin/documents/${selectedDoc.id}/approve` 
+        : `/admin/documents/${selectedDoc.id}/reject`;
+        
+      const payload = actionValue === "Approve" 
+        ? { ownerType: selectedDoc.ownerType || "BUSINESS", note: internalNote }
+        : { ownerType: selectedDoc.ownerType || "BUSINESS", rejectionReason: vendorMessage, note: internalNote };
 
-    toast.success(`Document marked as ${statusValue}`);
-    setModalOpen(false);
+      const res = await authenticatedFetch(endpoint, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      const result = await parseApiResponse(res);
+      console.log(result, payload)
+
+      if (result?.success || res.ok) {
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === selectedDoc.id 
+              ? { ...d, status: result?.status === "APPROVED" || actionValue === "Approve" ? "Verified" : "Rejected" } 
+              : d,
+          ),
+        );
+        toast.success(`Document ${actionValue === "Approve" ? "approved" : "rejected"} successfully`);
+        setModalOpen(false);
+      } else {
+        toast.error(result?.message || `Failed to ${actionValue.toLowerCase()} document`);
+      }
+    } catch (err) {
+      toast.error("An error occurred while updating document status");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
+      </div>
+    );
+  }
+
+  if (!documents.length) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        No KYC documents found.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -163,15 +222,15 @@ export default function KYCDocumentsTab() {
           key={doc.id}
           className="p-6 border-gray-100 shadow-none rounded-md"
         >
-          <div className="flex items-start justify-between mb-4">
-            <div>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex-1 min-w-0 pr-4">
               <h3 className="text-lg font-bold text-gray-900">{doc.title}</h3>
-              <p className="text-sm text-gray-500">{doc.description}</p>
+              <p className="text-sm text-gray-500 max-w-[500px]">{doc.description}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <span
                 className={cn(
-                  "text-[12px] px-2.5 py-1 rounded-md font-medium",
+                  "text-[12px] px-2.5 py-1 rounded-md font-medium whitespace-nowrap flex-shrink-0",
                   doc.status === "Verified" && "bg-green-50 text-green-700",
                   doc.status === "In Review" && "bg-gray-100 text-gray-700",
                   doc.status === "Pending Submission" &&
@@ -186,7 +245,7 @@ export default function KYCDocumentsTab() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-semibold rounded-md"
+                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-semibold rounded-md whitespace-nowrap flex-shrink-0"
                 onClick={() => handleOpenModal(doc)}
               >
                 Mark document as...
@@ -203,13 +262,20 @@ export default function KYCDocumentsTab() {
                 {doc.files.map((file, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-4 bg-gray-50/50 border border-gray-100 p-2.5 rounded-md w-fit min-w-[340px]"
+                    className="flex items-center gap-4 bg-[#F8F9FA] border border-gray-100 p-2.5 rounded-md w-fit max-w-full"
                   >
-                    <div className="flex items-center gap-2 text-blue-500 hover:underline cursor-pointer">
-                      <Paperclip size={14} />
-                      <span className="text-sm font-medium">{file.name}</span>
+                    <div 
+                      className="flex items-center gap-2 text-[#3b82f6] hover:underline cursor-pointer min-w-0"
+                      title={file.name}
+                      onClick={() => {
+                        if (file.url) window.open(file.url, "_blank");
+                      }}
+                    >
+                      <Paperclip size={14} className="flex-shrink-0" />
+                      <span className="text-sm font-medium truncate max-w-[150px] md:max-w-[250px]">{file.name}</span>
                     </div>
-                    <span className="text-[12px] text-gray-400">
+                    <div className="w-[1px] h-4 bg-gray-200 flex-shrink-0"></div>
+                    <span className="text-[12px] text-gray-500 flex-shrink-0">
                       Uploaded on: {file.date}
                     </span>
                   </div>
@@ -257,8 +323,10 @@ export default function KYCDocumentsTab() {
             </Button>
             <Button
               onClick={handleSubmit}
-              className="h-10 px-8 bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-md"
+              disabled={isSubmitting}
+              className="h-10 px-8 bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-md flex items-center justify-center min-w-[100px]"
             >
+              {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Submit
             </Button>
           </>
@@ -274,17 +342,11 @@ export default function KYCDocumentsTab() {
               as..
             </p>
             <RadioGroup
-              value={statusValue}
-              onValueChange={(v) => setStatusValue(v as DocStatus)}
+              value={actionValue}
+              onValueChange={(v) => setActionValue(v as "Approve" | "Reject")}
               className="space-y-3"
             >
-              {[
-                "Verified",
-                "Rejected",
-                "Required",
-                "In Review",
-                "Incomplete",
-              ].map((s) => (
+              {["Approve", "Reject"].map((s) => (
                 <div key={s} className="flex items-center space-x-3">
                   <RadioGroupItem
                     value={s}
@@ -302,7 +364,7 @@ export default function KYCDocumentsTab() {
             </RadioGroup>
           </div>
 
-          {statusValue !== "Verified" && (
+          {actionValue === "Reject" && (
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold text-gray-700">
                 Message to Vendor <span className="text-red-500">*</span>

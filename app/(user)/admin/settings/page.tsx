@@ -13,12 +13,13 @@ import { ServiceChargePayment } from "./_components/service-charge";
 import { DeliveryShipping } from "./_components/delivery-shipping";
 import { LegalPrivacy } from "./_components/legal-privacy";
 import { ProductCategories } from "./_components/product-categories";
+import { PaymentMethod } from "./_components/payment-method";
 import KYCDocumentsPage from "./_components/kyc-documents";
 import Header from "@/components/layout/Header";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = React.useState("platform");
-  const [activeSubTab, setActiveSubTab] = React.useState("team");
+  const [activeSubTab, setActiveSubTab] = React.useState("paymentMethod");
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -29,7 +30,7 @@ export default function SettingsPage() {
           value={activeTab}
           onValueChange={(v) => {
             setActiveTab(v);
-            setActiveSubTab(v === "platform" ? "team" : "service");
+            setActiveSubTab(v === "platform" ? "paymentMethod" : "service");
           }}
           className="w-full"
         >
@@ -53,6 +54,11 @@ export default function SettingsPage() {
               <div>
                 <div className="flex gap-8 border-b border-slate-200">
                   <SubTabTrigger
+                    label="Payment Method"
+                    active={activeSubTab === "paymentMethod"}
+                    onClick={() => setActiveSubTab("paymentMethod")}
+                  />
+                  <SubTabTrigger
                     label="Team Management"
                     active={activeSubTab === "team"}
                     onClick={() => setActiveSubTab("team")}
@@ -68,7 +74,8 @@ export default function SettingsPage() {
                     onClick={() => setActiveSubTab("legal")}
                   />
                 </div>
-                <div>
+                <div className="pt-8">
+                  {activeSubTab === "paymentMethod" && <PaymentMethod />}
                   {activeSubTab === "team" && <TeamManagement />}
                   {activeSubTab === "notification" && <NotificationSettings />}
                   {activeSubTab === "legal" && <LegalPrivacy />}
@@ -78,7 +85,7 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="flex gap-8 border-b border-slate-200">
                   <SubTabTrigger
-                    label="Service Charge & Payment"
+                    label="Service Charge & Payouts"
                     active={activeSubTab === "service"}
                     onClick={() => setActiveSubTab("service")}
                   />
@@ -92,11 +99,11 @@ export default function SettingsPage() {
                     active={activeSubTab === "kycDocuments"}
                     onClick={() => setActiveSubTab("kycDocuments")}
                   />
-                  <SubTabTrigger
+                  {/* <SubTabTrigger
                     label="Product Categories"
                     active={activeSubTab === "productCategories"}
                     onClick={() => setActiveSubTab("productCategories")}
-                  />
+                  /> */}
                 </div>
                 <div>
                   {activeSubTab === "service" && <ServiceChargePayment />}
