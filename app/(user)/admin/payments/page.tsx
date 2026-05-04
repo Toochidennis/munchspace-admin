@@ -43,7 +43,6 @@ import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 
 interface PaymentStatus {
@@ -86,6 +85,55 @@ const RANGE_OPTIONS = [
   { label: "This Year", value: "this_year" },
 ];
 
+function CustomModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  maxWidth = "sm:max-w-[640px]",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  maxWidth?: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
+          maxWidth,
+        )}
+      >
+        <div className="flex border-b items-center justify-between px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <button
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [statusGroups, setStatusGroups] = useState<PaymentGroup[]>([]);
@@ -111,10 +159,9 @@ export default function PaymentsPage() {
   const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [metadataContent, setMetadataContent] = useState<any>(null);
   
-  const [markAsModalOpen, setMarkAsModalOpen] = useState(false);
-  const [selectedPaymentForMark, setSelectedPaymentForMark] = useState<Payment | null>(null);
-  const [statusToMark, setStatusToMark] = useState("Pending");
-  const [internalNote, setInternalNote] = useState("");
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [selectedPaymentForVerify, setSelectedPaymentForVerify] = useState<Payment | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const fetchPayments = useCallback(async () => {
     setIsLoading(true);
@@ -183,11 +230,36 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleOpenMarkAs = (payment: Payment) => {
-    setSelectedPaymentForMark(payment);
-    setStatusToMark(payment.status || "Pending");
-    setInternalNote("");
-    setMarkAsModalOpen(true);
+  const handleVerifyPayment = (payment: Payment) => {
+    setSelectedPaymentForVerify(payment);
+    setVerifyModalOpen(true);
+  };
+
+  const submitVerifyPayment = async () => {
+    if (!selectedPaymentForVerify) return;
+    setIsVerifying(true);
+    try {
+      const res = await authenticatedFetch(
+        `/admin/payments/${selectedPaymentForVerify.paymentId}/verify`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      const result = await parseApiResponse(res);
+      console.log(result)
+      if (result?.success) {
+        toast.success(
+          `Payment verified: ${result.data?.verificationResult || "Success"}`,
+        );
+        setVerifyModalOpen(false);
+        setSelectedPaymentForVerify(null);
+        fetchPayments();
+      } else {
+        toast.error(result?.message || "Failed to verify payment");
+      }
+    } catch (err) {
+      toast.error("An error occurred while verifying payment");
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleViewMetadata = async (paymentId: string) => {
@@ -405,10 +477,14 @@ export default function PaymentsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedIds.length === 0}
+                disabled={selectedIds.length !== 1}
                 className="bg-[#F1F3F5] text-gray-400 border-none font-bold h-10 px-4 rounded-lg disabled:opacity-50"
+                onClick={() => {
+                  const payment = payments.find((p) => p.paymentId === selectedIds[0]);
+                  if (payment) handleVerifyPayment(payment);
+                }}
               >
-                Mark Payment As...
+                Verify Payment
               </Button>
               <Button
                 variant="outline"
@@ -504,9 +580,9 @@ export default function PaymentsPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="flex items-center gap-3 py-2.5 px-3 text-sm font-medium text-gray-700 cursor-pointer rounded-lg hover:bg-gray-50"
-                                onClick={() => handleOpenMarkAs(payment)}
+                                onClick={() => handleVerifyPayment(payment)}
                               >
-                                <Check size={16} /> Mark Payment as...
+                                <Check size={16} /> Verify Payment
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="flex items-center gap-3 py-2.5 px-3 text-sm font-medium text-gray-700 cursor-pointer rounded-lg hover:bg-gray-50"
@@ -570,130 +646,126 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* Mark As Modal */}
-      {markAsModalOpen && selectedPaymentForMark && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200 font-inter">
-          <div className="bg-white rounded-xl w-full max-w-[600px] overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900 font-inter">Mark Payment as...</h3>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setMarkAsModalOpen(false)}
-                className="text-gray-400"
-              >
-                <X size={20} />
-              </Button>
-            </div>
-            <div className="p-8 space-y-6">
-              <p className="text-[15px] text-gray-700">
-                Mark this payment for order(<span className="font-bold">#{selectedPaymentForMark.orderCode.replace("#", "")}</span>) as:
-              </p>
-              
-              <div className="space-y-2">
-                <label className="text-[14px] font-medium text-gray-600">Status <span className="text-red-500">*</span></label>
-                <Select value={statusToMark} onValueChange={setStatusToMark}>
-                  <SelectTrigger className="w-full h-12 border-gray-200 text-gray-700 font-medium rounded-lg shadow-none">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Success">Success</SelectItem>
-                    <SelectItem value="Failed">Failed</SelectItem>
-                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+      {/* Verify Payment Modal */}
+      <CustomModal
+        isOpen={verifyModalOpen && !!selectedPaymentForVerify}
+        onClose={() => {
+          if (!isVerifying) {
+            setVerifyModalOpen(false);
+            setSelectedPaymentForVerify(null);
+          }
+        }}
+        title="Verify Payment"
+        maxWidth="sm:max-w-[480px]"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVerifyModalOpen(false);
+                setSelectedPaymentForVerify(null);
+              }}
+              disabled={isVerifying}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={submitVerifyPayment}
+              disabled={isVerifying}
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify Payment"
+              )}
+            </Button>
+          </>
+        }
+      >
+        {selectedPaymentForVerify && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Verify payment for order <span className="font-medium">#{selectedPaymentForVerify.orderCode.replace("#", "")}</span>
+            </p>
+            <div className="bg-gray-50 rounded-md p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Amount</span>
+                <span className="font-semibold text-gray-900">{selectedPaymentForVerify.currency} {selectedPaymentForVerify.amount.toLocaleString()}</span>
               </div>
-
-              <div className="space-y-2">
-                <label className="text-[14px] font-medium text-gray-600">Internal Note <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Textarea 
-                    placeholder="For internal records. Not visible to the vendor or customer.\nBriefly explain why you're updating the payment status"
-                    className="min-h-[160px] border-gray-200 rounded-lg p-4 text-gray-700 placeholder:text-gray-400 focus-visible:ring-0 shadow-none resize-none"
-                    value={internalNote}
-                    onChange={(e) => setInternalNote(e.target.value)}
-                  />
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Reference</span>
+                <span className="font-medium text-gray-700 text-xs">{selectedPaymentForVerify.reference}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Current Status</span>
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase",
+                  selectedPaymentForVerify.status.toLowerCase() === "success" ? "bg-[#4CAF50]" : 
+                  selectedPaymentForVerify.status.toLowerCase() === "pending" ? "bg-[#FF9800]" : 
+                  "bg-[#F44336]"
+                )}>
+                  {selectedPaymentForVerify.status}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Gateway</span>
+                <span className="font-medium text-gray-700">{selectedPaymentForVerify.provider}</span>
               </div>
             </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-white">
-              <Button 
-                variant="outline" 
-                onClick={() => setMarkAsModalOpen(false)}
-                className="h-12 px-8 border-gray-200 text-gray-600 font-bold rounded-lg shadow-none hover:bg-gray-50"
-              >
-                Cancel
-              </Button>
-              <Button 
-                className="h-12 px-10 bg-[#E86B35] hover:bg-[#D15A2A] text-white font-bold rounded-lg shadow-none transition-colors"
-                onClick={() => {
-                  toast.success("Payment status updated successfully");
-                  setMarkAsModalOpen(false);
-                }}
-              >
-                Confirm
-              </Button>
-            </div>
+            <p className="text-xs text-gray-400">
+              This will re-verify the payment status with the payment gateway.
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </CustomModal>
 
       {/* Metadata Modal */}
-      {metadataModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200 font-inter">
-          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">Payment Metadata</h3>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setMetadataModalOpen(false)}
-                className="text-gray-400"
+      <CustomModal
+        isOpen={metadataModalOpen}
+        onClose={() => setMetadataModalOpen(false)}
+        title="Payment Metadata"
+        maxWidth="sm:max-w-[680px]"
+        footer={
+          <Button
+            variant="outline"
+            onClick={() => metadataContent?.paymentId && handleViewMetadata(metadataContent.paymentId)}
+            disabled={isMetadataLoading}
+          >
+            <RotateCcw size={16} className={cn("mr-2", isMetadataLoading && "animate-spin")} />
+            Recheck Status
+          </Button>
+        }
+      >
+        <div className="bg-[#111827] rounded-md p-6 relative min-h-[400px] flex flex-col justify-center">
+          {isMetadataLoading ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+              <p className="text-white/50 text-sm font-medium">Fetching transaction logs...</p>
+            </div>
+          ) : metadataContent ? (
+            <>
+              <button 
+                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(metadataContent, null, 2));
+                  toast.success("Metadata copied to clipboard");
+                }}
               >
-                <X size={20} />
-              </Button>
-            </div>
-            <div className="p-6">
-              <div className="bg-[#111827] rounded-2xl p-6 relative min-h-[400px] flex flex-col justify-center">
-                {isMetadataLoading ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-white/50" />
-                    <p className="text-white/50 text-sm font-medium italic">Fetching transaction logs...</p>
-                  </div>
-                ) : metadataContent ? (
-                  <>
-                    <button 
-                      className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
-                      onClick={() => {
-                        navigator.clipboard.writeText(JSON.stringify(metadataContent, null, 2));
-                        toast.success("Metadata copied to clipboard");
-                      }}
-                    >
-                      <Copy size={20} />
-                    </button>
-                    <pre className="text-[#9CA3AF] text-sm font-mono overflow-x-auto h-[400px] scrollbar-hide leading-relaxed">
-                      {JSON.stringify(metadataContent, null, 2)}
-                    </pre>
-                  </>
-                ) : (
-                  <p className="text-white/50 text-center italic">Failed to load metadata</p>
-                )}
-              </div>
-            </div>
-            <div className="p-6 bg-white border-t border-gray-100 flex justify-end">
-              <Button 
-                variant="outline"
-                className="h-11 px-6 border-gray-200 text-gray-600 font-bold rounded-xl gap-2 hover:bg-gray-50 transition-colors shadow-none"
-                onClick={() => metadataContent?.paymentId && handleViewMetadata(metadataContent.paymentId)}
-                disabled={isMetadataLoading}
-              >
-                <RotateCcw size={18} className={isMetadataLoading ? "animate-spin" : ""} /> Recheck Status
-              </Button>
-            </div>
-          </div>
+                <Copy size={20} />
+              </button>
+              <pre className="text-[#9CA3AF] text-sm font-mono overflow-x-auto h-[400px] scrollbar-hide leading-relaxed">
+                {JSON.stringify(metadataContent, null, 2)}
+              </pre>
+            </>
+          ) : (
+            <p className="text-white/50 text-center">Failed to load metadata</p>
+          )}
         </div>
-      )}
+      </CustomModal>
     </div>
   );
 }

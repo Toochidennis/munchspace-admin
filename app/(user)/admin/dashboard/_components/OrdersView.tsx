@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 
 // Data & Utils
 import { MOCK_ORDERS, dailyData, completionData } from "../lib/dashboard-data";
@@ -150,7 +151,7 @@ function CustomModal({
   );
 }
 
-export const OrdersView = () => {
+export const OrdersView = ({ range = "last_30_days", refreshTrigger = 0 }: { range?: string, refreshTrigger?: number }) => {
   // Filter States
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -221,68 +222,187 @@ export const OrdersView = () => {
     },
   ];
 
-  // 1. Filter Logic for Search/Amount/Dates (Affects Badge Counts)
-  const baseFilteredData = useMemo(() => {
-    let data = getFilteredData(MOCK_ORDERS, searchQuery);
+  // Fetch State
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [chartStatusFilter, setChartStatusFilter] = useState("delivered");
 
-    if (paymentStatus !== "all") {
-      data = data.filter((o) => o.paymentStatus === paymentStatus);
-    }
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
-    if (amountQuery) {
-      const minAmount = Number(amountQuery);
-      if (!isNaN(minAmount)) {
-        data = data.filter((o) => {
-          const val = Number(o.amount.replace(/[^\d]/g, ""));
-          return val >= minAmount;
-        });
-      }
-    }
-
-    if (startDate || endDate) {
-      data = data.filter((order) => {
-        const orderDate = new Date(order.date);
-        if (startDate && orderDate < startDate) return false;
-        if (endDate && orderDate > endDate) return false;
-        return true;
+  const fetchDashboardData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        type: "orders",
+        range: range,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
       });
+
+      if (debouncedSearch) params.append("search", debouncedSearch);
+      if (startDate) params.append("startDate", startDate.toISOString());
+      if (endDate) params.append("endDate", endDate.toISOString());
+      if (chartStatusFilter) {
+        const cMap: Record<string, string> = {
+          "delivered": "COMPLETED",
+          "out for delivery": "OUT_FOR_DELIVERY",
+          "awaiting pickup": "READY_FOR_PICKUP",
+          "awaiting confirmation": "PENDING_CONFIRMATION",
+          "cancelled": "CANCELLED"
+        };
+        params.append("chartStatusFilter", cMap[chartStatusFilter] || chartStatusFilter.toUpperCase());
+      }
+      
+      const statusMap: Record<string, string> = {
+        "Awaiting confirmation": "pending_confirmation",
+        "Awaiting Pickup": "ready_for_pickup",
+        "Out for Delivery": "out_for_delivery",
+        "Delivered": "completed",
+        "Cancelled": "cancelled"
+      };
+
+      if (statusFilter !== "All" && statusMap[statusFilter]) {
+        params.append("tableStatus", statusMap[statusFilter]);
+      }
+
+      const res = await authenticatedFetch(`/admin/analytics/dashboard?${params.toString()}`);
+      const result = await parseApiResponse(res);
+      if (result?.success) {
+        setData(result.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [range, currentPage, itemsPerPage, debouncedSearch, startDate, endDate, chartStatusFilter, statusFilter, refreshTrigger]);
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Transform Data for UI
+  const counts = useMemo(() => {
+    if (!data?.table?.groups) return { All: 0, "Awaiting confirmation": 0, "Awaiting Pickup": 0, "Out for Delivery": 0, "Delivered": 0, "Cancelled": 0 };
+    const res: Record<string, number> = { All: data.table.total || 0 };
+    data.table.groups.forEach((g: any) => {
+      if (g.status?.label) {
+        let label = g.status.label;
+        if (label === "Ready for pickup") label = "Awaiting Pickup";
+        if (label === "Completed") label = "Delivered";
+        if (label === "Out for delivery") label = "Out for Delivery";
+        res[label] = g.total;
+      }
+    });
+    return {
+      All: res["All"] || 0,
+      "Awaiting confirmation": res["Awaiting confirmation"] || 0,
+      "Awaiting Pickup": res["Awaiting Pickup"] || 0,
+      "Out for Delivery": res["Out for Delivery"] || 0,
+      "Delivered": res["Delivered"] || 0,
+      "Cancelled": res["Cancelled"] || 0,
+    };
+  }, [data]);
+
+  const displayedOrders = useMemo(() => {
+    if (!data?.table?.groups) return [];
+    let apiOrders: any[] = [];
+    if (statusFilter === "All") {
+      apiOrders = data.table.groups.flatMap((g: any) => g.orders || []);
+    } else {
+      const mappedStatus = statusFilter === "Awaiting Pickup" ? "Ready for pickup" : 
+                           statusFilter === "Delivered" ? "Completed" : 
+                           statusFilter === "Out for Delivery" ? "Out for delivery" : statusFilter;
+      const group = data.table.groups.find((g: any) => g.status?.label === mappedStatus);
+      apiOrders = group?.orders || [];
     }
 
-    return data;
-  }, [searchQuery, paymentStatus, startDate, endDate, amountQuery]);
+    return apiOrders.map((o: any) => ({
+      id: o.orderCode || o.orderId,
+      originalId: o.orderId,
+      date: new Date(o.createdAt).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true
+      }),
+      customer: o.customerName || "Unknown",
+      vendor: o.businessName || "Unknown",
+      status: o.status?.label === "Ready for pickup" ? "Awaiting Pickup" :
+              o.status?.label === "Completed" ? "Delivered" :
+              o.status?.label === "Out for delivery" ? "Out for Delivery" :
+              (o.status?.label || "Unknown"),
+      amount: `₦${o.totalAmount?.toLocaleString() || 0}`,
+      products: o.items?.map((item: any) => ({
+        name: item.name,
+        qty: item.quantity,
+        price: `₦${item.unitPrice?.toLocaleString()}`,
+        category: "Food",
+        image: item.imageUrl || "/placeholder.jpg"
+      })) || [],
+      shippingAddress: o.shippingAddress,
+      paymentStatus: o.paymentStatus?.label || "Unknown",
+    }));
+  }, [data, statusFilter]);
 
-  // 2. Reactive Badge Counts
-  const counts = useMemo(
-    () => ({
-      All: baseFilteredData.length,
-      "Awaiting confirmation": baseFilteredData.filter(
-        (o) => o.status === "Awaiting confirmation",
-      ).length,
-      "Awaiting Pickup": baseFilteredData.filter(
-        (o) => o.status === "Awaiting Pickup",
-      ).length,
-      "Out for Delivery": baseFilteredData.filter(
-        (o) => o.status === "Out for Delivery",
-      ).length,
-      Delivered: baseFilteredData.filter((o) => o.status === "Delivered")
-        .length,
-      Cancelled: baseFilteredData.filter((o) => o.status === "Cancelled")
-        .length,
-    }),
-    [baseFilteredData],
-  );
+  const tableDataLength = statusFilter === "All" ? counts.All : (counts as any)[statusFilter] || 0;
+  const totalPages = data?.table?.totalPages || 1;
+  
+  const dynamicDailyData = useMemo(() => {
+    if (!data?.charts?.aov?.currentMonth?.length) return dailyData;
+    const res: any[] = [];
+    const current = data.charts.aov.currentMonth;
+    const previous = data.charts.aov.previousMonth || [];
+    current.forEach((item: any, i: number) => {
+      res.push({
+        day: new Date(item.date).getDate().toString(),
+        thisMonth: item.value,
+        lastMonth: previous[i]?.value || 0
+      });
+    });
+    return res;
+  }, [data]);
 
-  // 3. Final Table Data (filtered by Status Tab)
-  const tableData = useMemo(() => {
-    if (statusFilter === "All") return baseFilteredData;
-    return baseFilteredData.filter((item) => item.status === statusFilter);
-  }, [baseFilteredData, statusFilter]);
+  const dynamicCompletionData = useMemo(() => {
+    if (!data?.charts?.completionRate) return completionData;
+    return [
+      { name: "Completed", value: data.charts.completionRate.completedPercentage || 0, color: "#00C950" },
+      { name: "Pending", value: data.charts.completionRate.incompletePercentage || 0, color: "#F1F3F5" }
+    ];
+  }, [data]);
 
-  const totalPages = Math.ceil(tableData.length / itemsPerPage);
-  const displayedOrders = tableData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Payment expired":
+        return "bg-red-100 text-red-700";
+      case "Out for Delivery":
+      case "Out for delivery":
+        return "bg-blue-100 text-blue-700";
+      case "Delivered":
+        return "bg-green-100 text-green-700";
+      case "Cancelled":
+        return "bg-gray-100 text-gray-700";
+      case "Rejected":
+        return "bg-orange-100 text-orange-700";
+      case "Pending payment":
+        return "bg-yellow-100 text-yellow-700";
+      case "Awaiting confirmation":
+        return "bg-purple-100 text-purple-700";
+      case "Preparing":
+        return "bg-indigo-100 text-indigo-700";
+      case "Awaiting Pickup":
+      case "Ready for pickup":
+        return "bg-pink-100 text-pink-700";
+      case "Returned":
+        return "bg-amber-100 text-amber-700";
+      default:
+        return "bg-[#FDB022] text-white";
+    }
+  };
 
   const filteredCouriers = useMemo(() => {
     let list = couriers;
@@ -316,24 +436,27 @@ export const OrdersView = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Orders"
-          value={counts.All.toLocaleString()}
-          trend="0.35%"
+          value={data?.summary?.totalOrders?.toLocaleString() || "0"}
+          trend={`${data?.trends?.totalOrders?.percentageChange || 0}%`}
+          trendType={data?.trends?.totalOrders?.trend === "down" ? "down" : "up"}
         />
         <StatCard
           title="Pending Orders"
-          value={counts["Awaiting confirmation"]}
-          trend="0.35%"
+          value={data?.summary?.totalPending?.toLocaleString() || "0"}
+          trend={`${data?.trends?.totalPending?.percentageChange || 0}%`}
+          trendType={data?.trends?.totalPending?.trend === "down" ? "down" : "up"}
         />
         <StatCard
           title="Total Delivered"
-          value={counts.Delivered}
-          trend="0.35%"
+          value={data?.summary?.totalDelivered?.toLocaleString() || "0"}
+          trend={`${data?.trends?.totalDelivered?.percentageChange || 0}%`}
+          trendType={data?.trends?.totalDelivered?.trend === "down" ? "down" : "up"}
         />
         <StatCard
           title="Total Cancelled"
-          value={counts.Cancelled}
-          trend="0.35%"
-          trendType="down"
+          value={data?.summary?.totalCancelled?.toLocaleString() || "0"}
+          trend={`${data?.trends?.totalCancelled?.percentageChange || 0}%`}
+          trendType={data?.trends?.totalCancelled?.trend === "down" ? "down" : "up"}
         />
       </div>
 
@@ -355,9 +478,9 @@ export const OrdersView = () => {
                 </TooltipContent>
               </Tooltip>
             </div>
-            <Select defaultValue="delivered">
+            <Select value={chartStatusFilter} onValueChange={setChartStatusFilter}>
               <SelectTrigger className="w-fit h-10 rounded shadow-none">
-                <SelectValue defaultValue="delivered" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="delivered">Delivered</SelectItem>
@@ -384,7 +507,7 @@ export const OrdersView = () => {
           </div>
           <CardContent className="p-0 pt-6 pe-10">
             <ResponsiveContainer height={250}>
-              <LineChart data={dailyData}>
+              <LineChart data={dynamicDailyData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -447,10 +570,7 @@ export const OrdersView = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={completionData.filter(
-                      (item) =>
-                        item.name === "Completed" || item.name === "Pending",
-                    )}
+                    data={dynamicCompletionData}
                     cx="50%"
                     cy="50%"
                     outerRadius={85}
@@ -486,12 +606,7 @@ export const OrdersView = () => {
                       );
                     }}
                   >
-                    {completionData
-                      .filter(
-                        (item) =>
-                          item.name === "Completed" || item.name === "Pending",
-                      )
-                      .map((entry, index) => (
+                    {dynamicCompletionData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                   </Pie>
@@ -501,12 +616,7 @@ export const OrdersView = () => {
             </div>
 
             <div className="w-full mt-8 flex justify-center relative">
-              {completionData
-                .filter(
-                  (item) =>
-                    item.name === "Completed" || item.name === "Pending",
-                )
-                .map((item) => (
+              {dynamicCompletionData.map((item) => (
                   <div
                     key={item.name}
                     className={cn(
@@ -539,7 +649,7 @@ export const OrdersView = () => {
         <CardHeader className="border-b py-6 px-4 space-y-6">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">
-              Orders ({tableData.length})
+              Orders ({tableDataLength})
             </CardTitle>
             <div className="flex gap-2">
               <div className="relative w-64">
@@ -664,7 +774,7 @@ export const OrdersView = () => {
                     : "bg-gray-100 text-gray-500 hover:bg-gray-200",
                 )}
               >
-                {label} {count}
+                {label} {(count as number)}
               </Badge>
             ))}
           </div>
@@ -726,8 +836,9 @@ export const OrdersView = () => {
           </div>
 
           {/* HEADER ROW */}
-          <div
-            className={cn(
+          <div className="space-y-0 border border-gray-200 rounded-md overflow-hidden m-6 mb-0 mt-4">
+            <div
+              className={cn(
               gridLayout,
               "bg-[#F9FAFB] text-gray-900 border-b border-gray-200 text-sm font-medium",
             )}
@@ -797,9 +908,13 @@ export const OrdersView = () => {
                       {order.vendor}
                     </div>
                     <div className="flex items-center border-r border-gray-100 px-4">
-                      <span className="bg-[#FDB022] text-white px-2 py-1 rounded-[4px] text-[11px] font-medium whitespace-nowrap w-full text-center">
-                        {order.status.slice(0, 14) +
-                          (order.status.length > 14 ? "..." : "")}
+                      <span
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap w-full text-center",
+                          getStatusColor(order.status),
+                        )}
+                      >
+                        {order.status}
                       </span>
                     </div>
                     <div className="flex items-center pl-4 text-gray-900 border-r border-gray-100 font-medium">
@@ -825,7 +940,7 @@ export const OrdersView = () => {
                         >
                           <DropdownMenuItem asChild>
                             <Link
-                              href={`/admin/orders/${order.id.replace("#", "")}`}
+                              href={`/admin/orders/${(order as any).originalId?.replace("#", "") || order.id.replace("#", "")}`}
                               className="flex items-center gap-2 py-2.5 w-full"
                             >
                               <Eye size={16} /> View More Info
@@ -947,13 +1062,14 @@ export const OrdersView = () => {
               );
             })}
           </div>
+          </div>
 
           {/* Pagination */}
           <div className="flex items-center justify-center gap-6 text-sm border-t pt-6 pb-6 bg-white">
             <p className="text-gray-500">
               Total{" "}
               <span className="text-gray-900 font-medium">
-                {tableData.length} items
+                {tableDataLength} items
               </span>
             </p>
 
