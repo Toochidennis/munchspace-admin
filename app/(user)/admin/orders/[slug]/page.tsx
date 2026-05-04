@@ -399,57 +399,61 @@ export default function OrderDetailsPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button 
-            className="bg-[#B64A26] hover:bg-[#963d1f] rounded-md text-white font-semibold"
-            onClick={() => {
-              setSelectedStatusKey("");
-              setStatusChangeReason("");
-              setStatusChangePassword("");
-              setStatusChangeError(null);
-              setMarkOrderAsOpen(true);
-            }}
-          >
-            Mark Order as...
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-md bg-white border-gray-200 text-gray-700 font-semibold">
-                More actions <MoreHorizontal className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-md w-48">
-              <DropdownMenuItem
-                className="gap-2 py-2.5 text-green-600 cursor-pointer"
-                onClick={() => {
-                  setCustomMessage("");
-                  setNotifyVendorOpen(true);
-                }}
-              >
-                <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" className="w-4 h-4" alt="" />
-                Notify Vendor...
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 py-2.5 text-blue-500 cursor-pointer"
-                onClick={() => {
-                  setCustomMessage("");
-                  setNotifyCustomerOpen(true);
-                }}
-              >
-                <MessageSquare size={16} /> Notify Customer...
-              </DropdownMenuItem>
-              <div className="h-px bg-gray-100 my-1" />
-              <DropdownMenuItem
-                className="gap-2 py-2.5 text-red-500 cursor-pointer"
-                onClick={() => {
-                  setCancelReason("");
-                  setCancelPassword("");
-                  setCancelOrderOpen(true);
-                }}
-              >
-                <Ban size={16} /> Cancel Order
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!["completed", "cancelled", "payment_expired"].includes(order.status.key) && (
+            <Button 
+              className="bg-[#B64A26] hover:bg-[#963d1f] rounded-md text-white font-semibold"
+              onClick={() => {
+                setSelectedStatusKey("");
+                setStatusChangeReason("");
+                setStatusChangePassword("");
+                setStatusChangeError(null);
+                setMarkOrderAsOpen(true);
+              }}
+            >
+              Mark Order as...
+            </Button>
+          )}
+          {!["completed", "cancelled", "payment_expired"].includes(order.status.key) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="rounded-md bg-white border-gray-200 text-gray-700 font-semibold">
+                  More actions <MoreHorizontal className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-md w-48">
+                <DropdownMenuItem
+                  className="gap-2 py-2.5 text-green-600 cursor-pointer"
+                  onClick={() => {
+                    setCustomMessage("");
+                    setNotifyVendorOpen(true);
+                  }}
+                >
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" className="w-4 h-4" alt="" />
+                  Notify Vendor...
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2 py-2.5 text-blue-500 cursor-pointer"
+                  onClick={() => {
+                    setCustomMessage("");
+                    setNotifyCustomerOpen(true);
+                  }}
+                >
+                  <MessageSquare size={16} /> Notify Customer...
+                </DropdownMenuItem>
+                <div className="h-px bg-gray-100 my-1" />
+                <DropdownMenuItem
+                  className="gap-2 py-2.5 text-red-500 cursor-pointer"
+                  onClick={() => {
+                    setCancelReason("");
+                    setCancelPassword("");
+                    setCancelOrderOpen(true);
+                  }}
+                >
+                  <Ban size={16} /> Cancel Order
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 

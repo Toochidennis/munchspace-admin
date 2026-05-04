@@ -55,6 +55,7 @@ import { getFilteredData, getPageNumbers } from "../lib/dashboard-utils";
 import { StatCard } from "./StatCard";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -120,69 +121,123 @@ const colorMap: Record<string, string> = {
   "red-400": "#F87171",
 };
 
-export const VendorsView = () => {
+export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { range?: string, refreshTrigger?: number }) => {
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // Added missing state
+  const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [topVendorsCount, setTopVendorsCount] = useState(6);
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
   const [notifyVendorOpen, setNotifyVendorOpen] = useState(false);
-  const [selectedVendorForAction, setSelectedVendorForAction] = useState<
-    string | null
-  >(null);
+  const [selectedVendorForAction, setSelectedVendorForAction] = useState<string | null>(null);
   const [notificationOption, setNotificationOption] = useState("");
   const [customMessage, setCustomMessage] = useState("");
 
-  // ──────────────────────────────────────────────
-  // Filtering logic
-  // ──────────────────────────────────────────────
-  const searchFiltered = useMemo(
-    () => getFilteredData(MOCK_VENDORS, searchQuery),
-    [searchQuery],
-  );
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const statusFiltered = useMemo(() => {
-    if (activeTab === "all") return searchFiltered;
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
-    if (activeTab === "flagged") {
-      return searchFiltered.filter((v) => v.flagged === true);
+  const fetchDashboardData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        type: "vendors",
+        range: range,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        topN: topVendorsCount.toString()
+      });
+
+      if (debouncedSearch) params.append("search", debouncedSearch);
+
+      // Status Mapping
+      const statusMap: Record<string, string> = {
+        "approved": "ACTIVE",
+        "pending": "PENDING_REVIEW",
+        "rejected": "REJECTED",
+      };
+
+      if (activeTab !== "all" && activeTab !== "flagged" && statusMap[activeTab]) {
+        params.append("businessStatus", statusMap[activeTab]);
+      }
+
+      const res = await authenticatedFetch(`/admin/analytics/dashboard?${params.toString()}`);
+      const result = await parseApiResponse(res);
+      if (result?.success) {
+        setData(result.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
+  }, [range, currentPage, itemsPerPage, debouncedSearch, activeTab, topVendorsCount, refreshTrigger]);
 
-    // Map tab id → actual status value
-    const statusMap: Record<string, string> = {
-      approved: "APPROVED",
-      pending: "PENDING APPROVAL",
-      rejected: "REJECTED",
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Transform Data for UI
+  const counts = useMemo(() => {
+    if (!data?.table?.statusCounts) return { all: 0, approved: 0, pending: 0, rejected: 0, flagged: 0 };
+    const sc = data.table.statusCounts;
+    const all = (sc.ONBOARDING || 0) + (sc.PENDING_REVIEW || 0) + (sc.ACTIVE || 0) + (sc.REJECTED || 0) + (sc.SUSPENDED || 0) + (sc.DEACTIVATED || 0);
+    return {
+      all: data.table.meta?.total || all,
+      approved: sc.ACTIVE || 0,
+      pending: sc.PENDING_REVIEW || 0,
+      rejected: sc.REJECTED || 0,
+      flagged: 0
     };
+  }, [data]);
 
-    const targetStatus = statusMap[activeTab];
-    if (targetStatus) {
-      return searchFiltered.filter((v) => v.status === targetStatus);
-    }
+  const paginated = useMemo(() => {
+    if (!data?.table?.data) return [];
+    return data.table.data.map((v: any) => ({
+      id: v.id,
+      name: v.displayName || v.legalName || "Unknown",
+      regDate: new Date(v.createdAt).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      }),
+      products: v.menuItemsCount || 0,
+      status: v.status === "ACTIVE" ? "APPROVED" : 
+              v.status === "PENDING_REVIEW" ? "PENDING APPROVAL" : 
+              v.status,
+      flagged: false, // Not provided
+    }));
+  }, [data]);
 
-    return searchFiltered;
-  }, [searchFiltered, activeTab]);
+  const totalPages = data?.table?.meta?.totalPages || 1;
+  const tableDataLength = data?.table?.meta?.total || 0;
 
-  const counts = useMemo(
-    () => ({
-      all: searchFiltered.length,
-      approved: searchFiltered.filter((v) => v.status === "APPROVED").length,
-      pending: searchFiltered.filter((v) => v.status === "PENDING APPROVAL")
-        .length,
-      rejected: searchFiltered.filter((v) => v.status === "REJECTED").length,
-      flagged: searchFiltered.filter((v) => v.flagged).length,
-    }),
-    [searchFiltered],
-  );
+  const dynamicVendorPerformance = useMemo(() => {
+    if (!data?.charts?.topVendors?.current) return [];
+    return data.charts.topVendors.current.map((v: any) => ({
+      name: v.businessName || "Unknown",
+      sales: v.totalSales || 0
+    }));
+  }, [data]);
 
-  const totalPages = Math.ceil(statusFiltered.length / itemsPerPage);
-  const paginated = statusFiltered.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  const top2VendorsDynamic = useMemo(() => {
+    if (!data?.topSellingItems) return [];
+    return data.topSellingItems.map((v: any) => ({
+      vendor: v.businessName || "Unknown",
+      items: v.items.map((i: any, idx: number) => ({
+        name: i.itemName,
+        sold: i.totalSold,
+        color: Object.keys(colorMap)[idx % Object.keys(colorMap).length]
+      }))
+    }));
+  }, [data]);
 
   const handleDeactivate = (ids: string[]) => {
     toast.promise(new Promise((resolve) => setTimeout(resolve, 1200)), {
@@ -193,22 +248,14 @@ export const VendorsView = () => {
     setSelectedVendors((prev) => prev.filter((id) => !ids.includes(id)));
   };
 
-  // Only pick the first 2 vendors from the mock data
-  const top2Vendors = topSellingData.slice(0, 2);
-
   return (
     <div className="space-y-8">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Vendors" value="150" trend="0.35%" />
-        <StatCard title="Approved Vendors" value="98" trend="0.35%" />
-        <StatCard
-          title="Pending Approval"
-          value="12"
-          trend="0.35%"
-          trendType="down"
-        />
-        <StatCard title="Rejected" value="44" trend="0.35%" trendType="down" />
+        <StatCard title="Total Vendors" value={data?.summary?.totalVendors?.toLocaleString() || "0"} trend={`${data?.trends?.totalVendors?.percentageChange || 0}%`} trendType={data?.trends?.totalVendors?.trend === "down" ? "down" : "up"} />
+        <StatCard title="Approved Vendors" value={data?.summary?.activeVendors?.toLocaleString() || "0"} trend={`${data?.trends?.activeVendors?.percentageChange || 0}%`} trendType={data?.trends?.activeVendors?.trend === "down" ? "down" : "up"} />
+        <StatCard title="Pending Approval" value={data?.summary?.pendingVendors?.toLocaleString() || "0"} trend={`${data?.trends?.pendingVendors?.percentageChange || 0}%`} trendType={data?.trends?.pendingVendors?.trend === "down" ? "down" : "up"} />
+        <StatCard title="Rejected" value={data?.summary?.rejectedVendors?.toLocaleString() || "0"} trend={`${data?.trends?.rejectedVendors?.percentageChange || 0}%`} trendType={data?.trends?.rejectedVendors?.trend === "down" ? "down" : "up"} />
       </div>
 
       {/* Charts */}
@@ -248,7 +295,7 @@ export const VendorsView = () => {
           <CardContent className="p-6 rounded-xl">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart
-                data={vendorPerformanceData.slice(0, topVendorsCount)}
+                data={dynamicVendorPerformance}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
                 <XAxis
@@ -311,7 +358,7 @@ export const VendorsView = () => {
             </div>
           </div>
           <CardContent className="p-6 py-3 space-y-6">
-            {top2Vendors.map((vendor, vIdx) => {
+            {top2VendorsDynamic.map((vendor: any, vIdx: number) => {
               // 1. Sort and get top 4 (or fewer) items
               const topItems = [...vendor.items]
                 .sort((a, b) => b.sold - a.sold)
@@ -325,7 +372,7 @@ export const VendorsView = () => {
 
               // 3. Calculate Vendor Percent: Top items vs Overall Store Sales
               const totalOverallSales = vendor.items.reduce(
-                (acc, item) => acc + item.sold,
+                (acc: number, item: any) => acc + item.sold,
                 0,
               );
               const vendorHeaderPercent = Math.round(
@@ -399,7 +446,7 @@ export const VendorsView = () => {
         <CardHeader className="border-b py-6 px-6 space-y-6">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">
-              Vendors ({statusFiltered.length})
+              Vendors ({tableDataLength})
             </CardTitle>
             <div className="flex gap-3">
               <div className="relative w-64">
@@ -498,7 +545,7 @@ export const VendorsView = () => {
             <table className="w-full text-sm text-left border-collapse min-w-[900px]">
               <thead className="bg-[#F8FAFC] text-gray-700 font-semibold border-b border-gray-100">
                 <tr>
-                  <th className="p-4 w-12">
+                  <th className="p-4 w-12 border-r border-gray-100">
                     <Checkbox
                       checked={
                         selectedVendors.length === paginated.length &&
@@ -506,36 +553,34 @@ export const VendorsView = () => {
                       }
                       onCheckedChange={(checked) => {
                         setSelectedVendors(
-                          checked ? paginated.map((v) => v.id) : [],
+                          checked ? paginated.map((v: any) => v.id) : [],
                         );
                       }}
+                      className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                     />
                   </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Vendor ID
-                  </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
                     Vendor Name
                   </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
                     Reg Date
                   </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
-                    Products Listed
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
+                    Items Listed
                   </th>
-                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500">
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
                     Status
                   </th>
                   <th className="p-4 text-center w-10">-</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {paginated.map((vendor) => (
+                {paginated.map((vendor: any) => (
                   <tr
                     key={vendor.id}
                     className="hover:bg-gray-50/50 transition-colors"
                   >
-                    <td className="p-4">
+                    <td className="p-4 border-r border-gray-100">
                       <Checkbox
                         checked={selectedVendors.includes(vendor.id)}
                         onCheckedChange={(c) =>
@@ -545,31 +590,33 @@ export const VendorsView = () => {
                               : prev.filter((id) => id !== vendor.id),
                           )
                         }
+                        className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                       />
                     </td>
-                    <td className="p-4 font-semibold text-gray-900">
-                      {vendor.id}
+                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
+                      <div className="flex flex-col">
+                        <span>{vendor.name}</span>
+                        <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{vendor.id}</span>
+                      </div>
                     </td>
-                    <td className="p-4 text-gray-600 font-medium">
-                      {vendor.name}
-                    </td>
-                    <td className="p-4 text-gray-500">{vendor.regDate}</td>
-                    <td className="p-4 text-gray-600 font-medium">
+                    <td className="p-4 text-gray-500 border-r border-gray-100 whitespace-nowrap">{vendor.regDate}</td>
+                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
                       {vendor.products || vendor.itemsListed || "—"}
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 border-r border-gray-100">
                       <div className="flex items-center gap-3">
                         <span
                           className={cn(
-                            "px-2.5 py-1 rounded text-[12px] uppercase text-white",
-                            vendor.status === "APPROVED" && "bg-green-500",
-                            vendor.status === "PENDING APPROVAL" &&
-                              "bg-yellow-500",
-                            vendor.status === "REJECTED" && "bg-red-500",
-                            vendor.status === "DEACTIVATED" && "bg-gray-500",
+                            "px-2.5 py-1 rounded text-[10px] uppercase font-bold text-white shadow-sm inline-block",
+                            vendor.status === "ACTIVE" ? "bg-[#50C828]" : 
+                            vendor.status === "PENDING_REVIEW" ? "bg-yellow-500" :
+                            vendor.status === "REJECTED" ? "bg-red-500" :
+                            vendor.status === "DEACTIVATED" ? "bg-gray-500" :
+                            vendor.status === "SUSPENDED" ? "bg-red-600" :
+                            "bg-blue-500" // ONBOARDING
                           )}
                         >
-                          {vendor.status}
+                          {vendor.status.replace("_", " ")}
                         </span>
                         {vendor.flagged && (
                           <Flag
@@ -633,7 +680,7 @@ export const VendorsView = () => {
             <p className="text-gray-500">
               Total{" "}
               <span className="text-gray-900 font-medium">
-                {statusFiltered.length} items
+                {tableDataLength} items
               </span>
             </p>
 

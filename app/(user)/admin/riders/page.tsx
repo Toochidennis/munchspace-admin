@@ -151,6 +151,9 @@ export default function RidersPage() {
   const [statusReason, setStatusReason] = useState("");
   const [amountQuery, setAmountQuery] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("all");
+  const [suspendModalOpen, setSuspendModalOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
+  const [isBulkSuspend, setIsBulkSuspend] = useState(false);
 
   const fetchRiders = useCallback(async () => {
     setIsLoading(true);
@@ -221,6 +224,98 @@ export default function RidersPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleToggleSuspension = async (riderId: string, currentStatus: string) => {
+    const isSuspended = currentStatus.toLowerCase() === "suspended";
+    if (isSuspended) {
+      // Unsuspend directly
+      confirmSuspension(riderId, true, "");
+    } else {
+      setSelectedRiderForAction(riders.find(r => r.riderId === riderId) || null);
+      setIsBulkSuspend(false);
+      setSuspendReason("");
+      setSuspendModalOpen(true);
+    }
+  };
+
+  const confirmSuspension = async (riderId: string, isUnsuspending: boolean, reason: string) => {
+    setIsProcessing(true);
+    const endpoint = isUnsuspending 
+      ? `/admin/riders/${riderId}/unsuspend` 
+      : `/admin/riders/${riderId}/suspend`;
+    
+    try {
+      const res = await authenticatedFetch(
+        endpoint,
+        {
+          method: "PATCH",
+          body: JSON.stringify(isUnsuspending ? {} : { reason }),
+        }
+      );
+      const result = await parseApiResponse(res);
+      if (result?.success) {
+        toast.success(`Rider ${isUnsuspending ? "unsuspended" : "suspended"} successfully`);
+        setSuspendModalOpen(false);
+        fetchRiders();
+      } else {
+        toast.error(result?.message || `Failed to ${isUnsuspending ? "unsuspend" : "suspend"} rider`);
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBulkSuspendClick = () => {
+    setIsBulkSuspend(true);
+    setSuspendReason("");
+    setSuspendModalOpen(true);
+  };
+
+  const confirmBulkSuspend = async () => {
+    if (selectedRiders.length === 0) return;
+
+    setIsProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const riderId of selectedRiders) {
+      const rider = riders.find(r => r.riderId === riderId);
+      const isCurrentlySuspended = rider?.status.toLowerCase() === "suspended";
+      const endpoint = isCurrentlySuspended 
+        ? `/admin/riders/${riderId}/unsuspend` 
+        : `/admin/riders/${riderId}/suspend`;
+
+      try {
+        const res = await authenticatedFetch(endpoint, {
+          method: "PATCH",
+          body: JSON.stringify(isCurrentlySuspended ? {} : { reason: suspendReason }),
+        });
+        const result = await parseApiResponse(res);
+        if (result?.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    if (failCount === 0) {
+      toast.success(`Action applied to ${successCount} rider${successCount > 1 ? "s" : ""}`);
+    } else if (successCount > 0) {
+      toast.warning(`Action applied to ${successCount} rider${successCount > 1 ? "s" : ""}, failed for ${failCount}`);
+    } else {
+      toast.error("Failed to update riders");
+    }
+
+    setIsProcessing(false);
+    setSuspendModalOpen(false);
+    setSelectedRiders([]);
+    fetchRiders();
   };
 
   const handleNotify = async () => {
@@ -430,11 +525,13 @@ export default function RidersPage() {
               Notify Rider...
             </Button>
             <Button
-              disabled={selectedRiders.length === 0}
+              disabled={selectedRiders.length === 0 || isProcessing}
               variant="outline"
               className="h-9 bg-[#F9FAFB] border-gray-200 text-gray-400 font-bold text-xs"
+              onClick={handleBulkSuspendClick}
             >
-              Suspend Rider
+              {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Suspend/Unsuspend
             </Button>
           </div>
 
@@ -543,8 +640,15 @@ export default function RidersPage() {
                             >
                               <Mail size={16} className="text-gray-400" /> Notify Rider...
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-3 py-3 font-bold text-xs text-red-500 border-t mt-1 focus:bg-red-50">
-                              <Ban size={16} /> Suspend Rider
+                            <DropdownMenuItem 
+                              className={cn(
+                                "gap-3 py-3 font-bold text-xs border-t mt-1 focus:bg-red-50",
+                                rider.status.toLowerCase() === "suspended" ? "text-green-600 focus:bg-green-50" : "text-red-500"
+                              )}
+                              onClick={() => handleToggleSuspension(rider.riderId, rider.status)}
+                              disabled={isProcessing}
+                            >
+                              <Ban size={16} /> {rider.status.toLowerCase() === "suspended" ? "Unsuspend Rider" : "Suspend Rider"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -693,6 +797,68 @@ export default function RidersPage() {
             rows={5}
             className="w-full border border-gray-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#E86B35] resize-none"
           />
+        </div>
+      </CustomModal>
+
+      {/* Suspend Modal */}
+      <CustomModal
+        isOpen={suspendModalOpen}
+        onClose={() => setSuspendModalOpen(false)}
+        title={isBulkSuspend ? "Suspend Selected Riders" : "Suspend Rider"}
+        maxWidth="sm:max-w-[500px]"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setSuspendModalOpen(false)}>Cancel</Button>
+            <Button 
+              className="bg-red-500 hover:bg-red-600 text-white font-medium"
+              onClick={isBulkSuspend ? confirmBulkSuspend : () => confirmSuspension(selectedRiderForAction?.riderId || "", false, suspendReason)}
+              disabled={isProcessing || !suspendReason.trim()}
+            >
+              {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Suspend Rider"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            {isBulkSuspend 
+              ? `Provide a reason for suspending ${selectedRiders.length} selected riders:` 
+              : `Provide a reason for suspending rider: `}
+            {!isBulkSuspend && <span className="font-medium">{selectedRiderForAction?.fullName}</span>}
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Suspension</label>
+            <Select value={suspendReason} onValueChange={setSuspendReason}>
+              <SelectTrigger className="w-full border-gray-300 rounded-md p-3 text-sm h-11 focus:ring-2 focus:ring-red-500">
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent className="z-[110]">
+                <SelectItem value="Repeated delivery misconduct">Repeated delivery misconduct</SelectItem>
+                <SelectItem value="Late deliveries">Frequent late deliveries</SelectItem>
+                <SelectItem value="Customer complaints">High volume of customer complaints</SelectItem>
+                <SelectItem value="Policy violation">Violation of company policy</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {suspendReason === "Other" && (
+            <textarea
+              value={suspendReason === "Other" ? "" : suspendReason} // Logic for custom reason could be improved
+              onChange={(e) => setSuspendReason(e.target.value)}
+              placeholder="Enter custom reason..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
+            />
+          )}
+          {/* Simple custom reason input if "Other" is selected */}
+          {suspendReason === "Other" ? (
+             <textarea
+               onChange={(e) => setSuspendReason(e.target.value)}
+               placeholder="Specify the reason..."
+               rows={3}
+               className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
+             />
+          ) : null}
         </div>
       </CustomModal>
     </div>

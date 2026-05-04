@@ -17,6 +17,8 @@ import {
   Ban,
   UserCheck,
   Loader2,
+  Pause,
+  Play,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,13 @@ interface StatusCounts {
   SUSPENDED: number;
   DEACTIVATED: number;
 }
+
+const vendorStatusOptions = [
+  { key: "active", label: "Active" },
+  { key: "suspended", label: "Suspended" },
+  { key: "rejected", label: "Rejected" },
+  { key: "pending_review", label: "Pending Review" },
+];
 
 const CustomDialog = ({ isOpen, onClose, title, children }: any) => {
   if (!isOpen) return null;
@@ -117,7 +126,29 @@ export default function VendorsPage() {
   const [showNotifyModal, setShowNotifyModal] = React.useState(false);
   const [customMessage, setCustomMessage] = React.useState("");
   const [isSendingMessage, setIsSendingMessage] = React.useState(false);
+
+  // Mark Vendor As State
+  const [markVendorAsOpen, setMarkVendorAsOpen] = React.useState(false);
+  const [selectedVendorStatusKey, setSelectedVendorStatusKey] = React.useState("");
+  const [vendorStatusReason, setVendorStatusReason] = React.useState("");
+  const [isChangingVendorStatus, setIsChangingVendorStatus] = React.useState(false);
   const [selectedVendorForAction, setSelectedVendorForAction] = React.useState<string | null>(null);
+
+  // Vendor Action Modal (Suspend, Unsuspend, Deactivate)
+  const [vendorActionModalOpen, setVendorActionModalOpen] = React.useState(false);
+  const [vendorActionType, setVendorActionType] = React.useState<"suspend" | "unsuspend" | "deactivate" | "">("");
+  const [vendorActionReason, setVendorActionReason] = React.useState("");
+  const [isPerformingVendorAction, setIsPerformingVendorAction] = React.useState(false);
+
+  const openVendorActionModal = (vendorId: string | null, action: "suspend" | "unsuspend" | "deactivate") => {
+    setSelectedVendorForAction(vendorId);
+    setVendorActionType(action);
+    setVendorActionReason(
+      action === "suspend" ? "Policy violation reported by multiple customers" :
+      action === "deactivate" ? "Repeated severe policy violations. Account cannot be reinstated." : ""
+    );
+    setVendorActionModalOpen(true);
+  };
 
   // Debounce search
   React.useEffect(() => {
@@ -179,6 +210,67 @@ export default function VendorsPage() {
   React.useEffect(() => {
     fetchVendors();
   }, [fetchVendors]);
+
+  const executeVendorAction = async () => {
+    if (!vendorActionType) return;
+    
+    setIsPerformingVendorAction(true);
+    let payload: any = undefined;
+    if (vendorActionType === "suspend" || vendorActionType === "deactivate") {
+      payload = { reason: vendorActionReason.trim() };
+    }
+
+    try {
+      const vendorIds = selectedVendorForAction
+        ? [selectedVendorForAction]
+        : [...selectedVendors];
+
+      if (!vendorIds.length) {
+        toast.error("No vendor selected");
+        setIsPerformingVendorAction(false);
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const vId of vendorIds) {
+        try {
+          const res = await authenticatedFetch(`/admin/vendors/${vId}/${vendorActionType}`, {
+            method: "PATCH",
+            body: payload ? JSON.stringify(payload) : undefined
+          });
+          const result = await parseApiResponse(res);
+          if (result?.success) {
+            successCount++;
+          } else {
+            failCount++;
+            if (vendorIds.length === 1) toast.error(result?.error || result?.message || `Failed to ${vendorActionType} vendor`);
+          }
+        } catch {
+          failCount++;
+        }
+      }
+
+      if (vendorIds.length > 1) {
+        if (failCount === 0) toast.success(`Successfully ${vendorActionType}ed ${successCount} vendors`);
+        else toast.warning(`Action completed for ${successCount}, failed for ${failCount} vendors`);
+      } else if (successCount > 0) {
+        toast.success(`Vendor successfully ${vendorActionType}ed`);
+      }
+
+      setVendorActionModalOpen(false);
+      setSelectedVendorForAction(null);
+      setVendorActionType("");
+      setVendorActionReason("");
+      setSelectedVendors([]);
+      fetchVendors();
+    } catch (err) {
+      toast.error(`Failed to ${vendorActionType} vendor`);
+    } finally {
+      setIsPerformingVendorAction(false);
+    }
+  };
 
   // Handle Tab Change
   const handleTabChange = (val: string) => {
@@ -359,6 +451,12 @@ export default function VendorsPage() {
               disabled={selectedVendors.length === 0}
               variant="outline"
               className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
+              onClick={() => {
+                setSelectedVendorForAction(null);
+                setSelectedVendorStatusKey("");
+                setVendorStatusReason("");
+                setMarkVendorAsOpen(true);
+              }}
             >
               Mark Vendor As...
             </Button>
@@ -378,6 +476,7 @@ export default function VendorsPage() {
               disabled={selectedVendors.length === 0}
               variant="outline"
               className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
+              onClick={() => openVendorActionModal(null, "deactivate")}
             >
               Deactivate Vendor
             </Button>
@@ -466,7 +565,15 @@ export default function VendorsPage() {
                           >
                             <Eye size={16} className="text-gray-400" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer">
+                          <DropdownMenuItem
+                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              setSelectedVendorForAction(vendor.id);
+                              setSelectedVendorStatusKey("");
+                              setVendorStatusReason("");
+                              setMarkVendorAsOpen(true);
+                            }}
+                          >
                             <UserCheck size={16} className="text-gray-400" /> Mark Vendor as...
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -479,7 +586,27 @@ export default function VendorsPage() {
                           >
                             <Mail size={16} className="text-gray-400" /> Notify Vendor...
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50 cursor-pointer">
+                          
+                          {vendor.status === "SUSPENDED" ? (
+                            <DropdownMenuItem
+                              className="gap-3 py-2.5 font-medium text-xs text-blue-600 border-t border-gray-50 mt-1 focus:bg-blue-50 cursor-pointer"
+                              onClick={() => openVendorActionModal(vendor.id, "unsuspend")}
+                            >
+                              <Play size={16} /> Unsuspend Vendor
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="gap-3 py-2.5 font-medium text-xs text-orange-600 border-t border-gray-50 mt-1 focus:bg-orange-50 cursor-pointer"
+                              onClick={() => openVendorActionModal(vendor.id, "suspend")}
+                            >
+                              <Pause size={16} /> Suspend Vendor
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuItem
+                            className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50 cursor-pointer"
+                            onClick={() => openVendorActionModal(vendor.id, "deactivate")}
+                          >
                             <Ban size={16} /> Deactivate Vendor
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -618,47 +745,32 @@ export default function VendorsPage() {
 
                 setIsSendingMessage(true);
                 try {
-                  const vendorsToNotify = selectedVendorForAction
-                    ? [vendors.find((v) => v.id === selectedVendorForAction)].filter(Boolean)
-                    : selectedVendors
-                        .map((id) => vendors.find((v) => v.id === id))
-                        .filter(Boolean);
+                  const vendorIds = selectedVendorForAction
+                    ? [selectedVendorForAction]
+                    : [...selectedVendors];
 
-                  if (!vendorsToNotify.length) {
+                  if (!vendorIds.length) {
                     toast.error("No vendors selected");
                     return;
                   }
 
-                  let successCount = 0;
-                  let failCount = 0;
-
-                  for (const v of vendorsToNotify) {
-                    if (!v) continue;
-
-                    const res = await authenticatedFetch(
-                      `/admin/businesses/${v.id}/messages`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          recipient: "vendor",
-                          message: customMessage.trim(),
-                        }),
-                      }
-                    );
-                    const result = await parseApiResponse(res);
-                    console.log("response is", result)
-
-                    if (result?.success) {
-                      successCount++;
-                    } else {
-                      failCount++;
+                  const res = await authenticatedFetch(
+                    `/admin/vendors/bulk/messages`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        vendorIds,
+                        message: customMessage.trim(),
+                      }),
                     }
-                  }
+                  );
+                  const result = await parseApiResponse(res);
 
-                  if (failCount === 0) {
-                    toast.success(`Message sent to ${successCount} vendor${successCount > 1 ? "s" : ""}`);
+                  if (result?.success) {
+                    toast.success(`Message sent to ${vendorIds.length} vendor${vendorIds.length > 1 ? "s" : ""}`);
                   } else {
-                    toast.warning(`Sent to ${successCount} vendors, failed for ${failCount}`);
+                    const errorMessage = result?.error || result?.message || "Failed to send message";
+                    toast.error(errorMessage);
                   }
 
                   setShowNotifyModal(false);
@@ -678,6 +790,247 @@ export default function VendorsPage() {
                 </>
               ) : (
                 "Send Message"
+              )}
+            </Button>
+          </div>
+        </div>
+      </CustomDialog>
+
+      {/* Mark Vendor As Modal */}
+      <CustomDialog
+        isOpen={markVendorAsOpen}
+        onClose={() => {
+          if (!isChangingVendorStatus) {
+            setMarkVendorAsOpen(false);
+            setSelectedVendorForAction(null);
+            setSelectedVendorStatusKey("");
+            setVendorStatusReason("");
+          }
+        }}
+        title="Mark Vendor As"
+      >
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedVendorForAction ? (
+              <>
+                Change status for vendor:{" "}
+                <span className="font-medium">
+                  {vendors.find((v) => v.id === selectedVendorForAction)?.displayName ||
+                   vendors.find((v) => v.id === selectedVendorForAction)?.legalName || "Vendor"}
+                </span>
+              </>
+            ) : (
+              <>
+                Change status for{" "}
+                <span className="font-medium">
+                  {selectedVendors.length} selected vendor{selectedVendors.length !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
+          </p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              New Status
+            </label>
+            <Select
+              value={selectedVendorStatusKey}
+              onValueChange={setSelectedVendorStatusKey}
+              disabled={isChangingVendorStatus}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select new status" />
+              </SelectTrigger>
+              <SelectContent className="z-[200]">
+                {vendorStatusOptions.map((opt) => (
+                  <SelectItem key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason
+            </label>
+            <textarea
+              value={vendorStatusReason}
+              onChange={(e) => setVendorStatusReason(e.target.value)}
+              placeholder="Enter reason for status change..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#E86B35] resize-y"
+              disabled={isChangingVendorStatus}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-6 mt-2 border-t border-gray-100">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMarkVendorAsOpen(false);
+                setSelectedVendorForAction(null);
+                setSelectedVendorStatusKey("");
+                setVendorStatusReason("");
+              }}
+              disabled={isChangingVendorStatus}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#E86B35] hover:bg-[#d15d2c] text-white shadow-none"
+              disabled={!selectedVendorStatusKey || !vendorStatusReason.trim() || isChangingVendorStatus}
+              onClick={async () => {
+                if (!selectedVendorStatusKey || !vendorStatusReason.trim()) return;
+
+                setIsChangingVendorStatus(true);
+
+                try {
+                  const vendorIds = selectedVendorForAction
+                    ? [selectedVendorForAction]
+                    : [...selectedVendors];
+
+                  if (!vendorIds.length) {
+                    toast.error("No vendor selected");
+                    return;
+                  }
+
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (const vendorId of vendorIds) {
+                    try {
+                      const res = await authenticatedFetch(
+                        `/admin/businesses/${vendorId}/status`,
+                        {
+                          method: "PATCH",
+                          body: JSON.stringify({
+                            statusKey: selectedVendorStatusKey,
+                            reason: vendorStatusReason.trim(),
+                          }),
+                        }
+                      );
+                      const result = await parseApiResponse(res);
+                      if (result?.success) {
+                        successCount++;
+                      } else {
+                        failCount++;
+                        const errorMessage = result?.error || result?.message || "Failed to update status";
+                        if (vendorIds.length === 1) {
+                          toast.error(errorMessage);
+                        }
+                      }
+                    } catch {
+                      failCount++;
+                    }
+                  }
+
+                  if (vendorIds.length > 1) {
+                    if (failCount === 0) {
+                      toast.success(`Status updated for ${successCount} vendor${successCount > 1 ? "s" : ""}`);
+                    } else {
+                      toast.warning(`Updated ${successCount}, failed for ${failCount} vendor${failCount > 1 ? "s" : ""}`);
+                    }
+                  } else if (successCount > 0) {
+                    toast.success("Vendor status updated successfully");
+                  }
+
+                  setMarkVendorAsOpen(false);
+                  setSelectedVendorForAction(null);
+                  setSelectedVendorStatusKey("");
+                  setVendorStatusReason("");
+                  setSelectedVendors([]);
+                  fetchVendors();
+                } catch (err) {
+                  toast.error("Failed to update vendor status");
+                } finally {
+                  setIsChangingVendorStatus(false);
+                }
+              }}
+            >
+              {isChangingVendorStatus ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Status"
+              )}
+            </Button>
+          </div>
+        </div>
+      </CustomDialog>
+      {/* Vendor Action Modal */}
+      <CustomDialog
+        isOpen={vendorActionModalOpen}
+        onClose={() => {
+          if (!isPerformingVendorAction) {
+            setVendorActionModalOpen(false);
+            setVendorActionReason("");
+          }
+        }}
+        title={`${vendorActionType ? vendorActionType.charAt(0).toUpperCase() + vendorActionType.slice(1) : "Action"} Vendor`}
+      >
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedVendorForAction ? (
+              <>
+                Are you sure you want to {vendorActionType} this vendor:{" "}
+                <span className="font-medium">
+                  {vendors.find((v) => v.id === selectedVendorForAction)?.displayName ||
+                   vendors.find((v) => v.id === selectedVendorForAction)?.legalName || "Vendor"}
+                </span>?
+              </>
+            ) : (
+              <>
+                Are you sure you want to {vendorActionType}{" "}
+                <span className="font-medium">
+                  {selectedVendors.length} selected vendor{selectedVendors.length !== 1 ? "s" : ""}
+                </span>?
+              </>
+            )}
+          </p>
+
+          {(vendorActionType === "suspend" || vendorActionType === "deactivate") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={vendorActionReason}
+                onChange={(e) => setVendorActionReason(e.target.value)}
+                placeholder="Enter reason..."
+                rows={3}
+                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#E86B35] resize-y"
+                disabled={isPerformingVendorAction}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-6 mt-2 border-t border-gray-100">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVendorActionModalOpen(false);
+                setVendorActionReason("");
+              }}
+              disabled={isPerformingVendorAction}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#E86B35] hover:bg-[#d15d2c] text-white shadow-none"
+              disabled={((vendorActionType === "suspend" || vendorActionType === "deactivate") && !vendorActionReason.trim()) || isPerformingVendorAction}
+              onClick={executeVendorAction}
+            >
+              {isPerformingVendorAction ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Confirm"
               )}
             </Button>
           </div>

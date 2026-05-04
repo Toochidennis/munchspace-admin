@@ -139,7 +139,7 @@ export default function CustomersPage() {
   const [selectedCustomerIds, setSelectedCustomerIds] = React.useState<string[]>([]);
   const [showNotifyModal, setShowNotifyModal] = React.useState(false);
   const [showLogsModal, setShowLogsModal] = React.useState(false);
-  const [customMsgChecked, setCustomMsgChecked] = React.useState(false);
+  const [notificationOption, setNotificationOption] = React.useState<"predefined" | "custom" | null>(null);
   const [customMessage, setCustomMessage] = React.useState("");
 
   // Suspend Actions State
@@ -222,10 +222,20 @@ export default function CustomersPage() {
 
   // Send Message logic
   const handleNotifyCustomer = async () => {
-    if (!customMsgChecked || !customMessage.trim()) {
-      toast.error("Please provide a custom message.");
+    let finalMessage = "";
+    if (notificationOption === "predefined") {
+      finalMessage = "Notify customer to clear their cart before items run out of stock";
+    } else if (notificationOption === "custom") {
+      if (!customMessage.trim()) {
+        toast.error("Please provide a custom message.");
+        return;
+      }
+      finalMessage = customMessage;
+    } else {
+      toast.error("Please select a notification option.");
       return;
     }
+
     const recipients = selectedCustomer ? [selectedCustomer.id] : selectedCustomerIds;
     if (recipients.length === 0) return;
 
@@ -234,7 +244,7 @@ export default function CustomersPage() {
       recipients.map((id) =>
         authenticatedFetch(`/admin/customers/${id}/messages`, {
           method: "POST",
-          body: JSON.stringify({ message: customMessage }),
+          body: JSON.stringify({ message: finalMessage }),
         })
       )
     );
@@ -244,7 +254,7 @@ export default function CustomersPage() {
       success: () => {
         setShowNotifyModal(false);
         setCustomMessage("");
-        setCustomMsgChecked(false);
+        setNotificationOption(null);
         setSelectedCustomerIds([]);
         setSelectedCustomer(null);
         return "Message sent successfully";
@@ -717,7 +727,7 @@ export default function CustomersPage() {
         isOpen={showNotifyModal}
         onClose={() => {
           setShowNotifyModal(false);
-          setCustomMsgChecked(false);
+          setNotificationOption(null);
           setCustomMessage("");
         }}
         title="Notify Customer..."
@@ -727,7 +737,7 @@ export default function CustomersPage() {
               variant="outline"
               onClick={() => {
                 setShowNotifyModal(false);
-                setCustomMsgChecked(false);
+                setNotificationOption(null);
                 setCustomMessage("");
               }}
               className="h-10 text-xs font-bold rounded-lg px-6 border-slate-200 text-slate-600 shadow-none"
@@ -755,6 +765,8 @@ export default function CustomersPage() {
             <div className="flex items-start gap-3 p-4 border border-slate-100 rounded-lg bg-slate-50/30">
               <Checkbox
                 id="pop1"
+                checked={notificationOption === "predefined"}
+                onCheckedChange={() => setNotificationOption("predefined")}
                 className="mt-0.5 data-[state=checked]:bg-[#E86B35] border-slate-300"
               />
               <label htmlFor="pop1" className="text-xs font-bold text-slate-700 cursor-pointer leading-tight">
@@ -764,8 +776,8 @@ export default function CustomersPage() {
             <div className="flex items-start gap-3 p-4 border border-slate-100 rounded-lg bg-slate-50/30">
               <Checkbox
                 id="pop2"
-                checked={customMsgChecked}
-                onCheckedChange={(v: boolean) => setCustomMsgChecked(v)}
+                checked={notificationOption === "custom"}
+                onCheckedChange={() => setNotificationOption("custom")}
                 className="mt-0.5 data-[state=checked]:bg-[#E86B35] border-slate-300"
               />
               <label htmlFor="pop2" className="text-xs font-bold text-slate-700 cursor-pointer">
@@ -773,7 +785,7 @@ export default function CustomersPage() {
               </label>
             </div>
 
-            {customMsgChecked && (
+            {notificationOption === "custom" && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                 <Textarea
                   value={customMessage}

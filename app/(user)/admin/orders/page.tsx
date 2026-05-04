@@ -163,12 +163,26 @@ interface Order {
   allowedTransitions: StatusTransition[];
 }
 
-interface Courier {
+interface Rider {
   id: string;
-  name: string;
-  locations: string;
-  status: "available" | "busy";
-  assignments: number;
+  userId: string;
+  onlineStatus: string;
+  currentLocation: {
+    latitude: number;
+    longitude: number;
+  };
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+  };
+  assignedOrdersCount: number;
+  maxAssignableOrders: number;
+  remainingAssignableOrders: number;
+  streetName: string;
+  lgaName: string;
+  isAssignedToOrder: boolean;
 }
 
 function CustomModal({
@@ -250,10 +264,12 @@ export default function OrdersPage() {
   >(null);
   const [customMessage, setCustomMessage] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [courierTab, setCourierTab] = useState<"all" | "unassigned">(
-    "unassigned",
-  );
-  const [courierSearch, setCourierSearch] = useState("");
+  const [riderSearch, setRiderSearch] = useState("");
+  const [riders, setRiders] = useState<Rider[]>([]);
+  const [isLoadingRiders, setIsLoadingRiders] = useState(false);
+  const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
+  const [isAssigningRider, setIsAssigningRider] = useState(false);
+  const [assignRiderReason, setAssignRiderReason] = useState("");
 
   // Cancel Order Modal State
   const [cancelOrderOpen, setCancelOrderOpen] = useState(false);
@@ -492,60 +508,47 @@ export default function OrdersPage() {
     }
   };
 
-  // Mock couriers for now - would come from API
-  const couriers = [
-    {
-      id: "c1",
-      name: "Ayodele Muhammed",
-      locations: "Agege / Ogba / Abulegba",
-      status: "available" as const,
-      assignments: 0,
-    },
-    {
-      id: "c2",
-      name: "Chukwudi Okeke",
-      locations: "Ikeja / Alausa / Ojodu",
-      status: "available" as const,
-      assignments: 0,
-    },
-    {
-      id: "c3",
-      name: "Fatima Ibrahim",
-      locations: "Surulere / Yaba / Ebute Metta",
-      status: "busy" as const,
-      assignments: 2,
-    },
-    {
-      id: "c4",
-      name: "Emeka Nwosu",
-      locations: "Lekki Phase 1 / Phase 2",
-      status: "available" as const,
-      assignments: 0,
-    },
-    {
-      id: "c5",
-      name: "Aisha Bello",
-      locations: "Victoria Island / Ikoyi",
-      status: "available" as const,
-      assignments: 1,
-    },
-  ];
-
-  const filteredCouriers = useMemo(() => {
-    let list = couriers;
-    if (courierTab === "unassigned") {
-      list = list.filter((c) => c.assignments === 0);
+  // Fetch assignable riders for an order
+  const fetchRiders = useCallback(async (orderId: string) => {
+    setIsLoadingRiders(true);
+    setRiders([]);
+    setSelectedRiderId(null);
+    try {
+      const res = await authenticatedFetch(`/admin/orders/${orderId}/riders`);
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success && Array.isArray(apiRes.data)) {
+        setRiders(apiRes.data);
+      } else {
+        toast.error(apiRes?.message || "Failed to fetch riders");
+      }
+    } catch (err) {
+      toast.error("Failed to fetch riders");
+    } finally {
+      setIsLoadingRiders(false);
     }
-    if (courierSearch.trim()) {
-      const term = courierSearch.toLowerCase().trim();
+  }, []);
+
+  // Sorted and filtered riders: isAssignedToOrder first, then filtered by search
+  const filteredRiders = useMemo(() => {
+    let list = [...riders];
+    // Sort: assigned to this order first
+    list.sort((a, b) => {
+      if (a.isAssignedToOrder && !b.isAssignedToOrder) return -1;
+      if (!a.isAssignedToOrder && b.isAssignedToOrder) return 1;
+      return 0;
+    });
+    if (riderSearch.trim()) {
+      const term = riderSearch.toLowerCase().trim();
       list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(term) ||
-          c.locations.toLowerCase().includes(term),
+        (r) =>
+          `${r.user.firstName} ${r.user.lastName}`.toLowerCase().includes(term) ||
+          r.user.email.toLowerCase().includes(term) ||
+          r.streetName?.toLowerCase().includes(term) ||
+          r.lgaName?.toLowerCase().includes(term),
       );
     }
     return list;
-  }, [courierTab, courierSearch]);
+  }, [riders, riderSearch]);
 
   const handleCancelOrderClick = (orderId: string, orderDbId: string) => {
     setCancelOrderId(orderDbId);
@@ -914,6 +917,15 @@ export default function OrdersPage() {
               size="sm"
               disabled={!selectedOrders.length}
               onClick={() => {
+                const restrictedStatuses = ["Delivered", "Cancelled", "Payment expired"];
+                const hasRestricted = selectedOrders.some((id) => {
+                  const o = allOrders.find((ord) => ord.id === id);
+                  return o && restrictedStatuses.includes(o.status);
+                });
+                if (hasRestricted) {
+                  toast.error("Cannot mark orders that are Delivered, Cancelled, or Payment expired");
+                  return;
+                }
                 setSelectedOrderForAction(null);
                 setSelectedStatusKey("");
                 setStatusChangeReason("");
@@ -929,6 +941,15 @@ export default function OrdersPage() {
               size="sm"
               disabled={!selectedOrders.length}
               onClick={() => {
+                const restrictedStatuses = ["Delivered", "Cancelled", "Payment expired"];
+                const hasRestricted = selectedOrders.some((id) => {
+                  const o = allOrders.find((ord) => ord.id === id);
+                  return o && restrictedStatuses.includes(o.status);
+                });
+                if (hasRestricted) {
+                  toast.error("Cannot notify vendors for orders that are Delivered, Cancelled, or Payment expired");
+                  return;
+                }
                 setSelectedOrderForAction(null);
                 setCustomMessage("");
                 setNotifyVendorOpen(true);
@@ -946,6 +967,15 @@ export default function OrdersPage() {
               size="sm"
               disabled={!selectedOrders.length}
               onClick={() => {
+                const restrictedStatuses = ["Delivered", "Cancelled", "Payment expired"];
+                const hasRestricted = selectedOrders.some((id) => {
+                  const o = allOrders.find((ord) => ord.id === id);
+                  return o && restrictedStatuses.includes(o.status);
+                });
+                if (hasRestricted) {
+                  toast.error("Cannot notify customers for orders that are Delivered, Cancelled, or Payment expired");
+                  return;
+                }
                 setSelectedOrderForAction(null);
                 setCustomMessage("");
                 setNotifyCustomerOpen(true);
@@ -958,17 +988,39 @@ export default function OrdersPage() {
               variant="outline"
               size="sm"
               disabled={!selectedOrders.length}
-              onClick={() => setAssignCourierOpen(true)}
+              onClick={() => {
+                // Use the first selected order's orderId to fetch riders
+                const order = allOrders.find((o) => o.id === selectedOrders[0]);
+                if (!order) return;
+                if (order.status !== "Ready for pickup") {
+                  toast.error("Only orders with 'Ready for pickup' status can be assigned to riders");
+                  return;
+                }
+                setSelectedOrderForAction(order.id);
+                fetchRiders(order.orderId);
+                setAssignCourierOpen(true);
+              }}
             >
               <UserPlus className="mr-2 h-4 w-4" />
-              Assign Courier
+              Assign Rider
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="text-red-400 border-gray-100"
               disabled={!selectedOrders.length}
-              onClick={handleBulkCancelOrderClick}
+              onClick={() => {
+                const restrictedStatuses = ["Delivered", "Cancelled", "Payment expired"];
+                const hasRestricted = selectedOrders.some((id) => {
+                  const o = allOrders.find((ord) => ord.id === id);
+                  return o && restrictedStatuses.includes(o.status);
+                });
+                if (hasRestricted) {
+                  toast.error("Cannot cancel orders that are Delivered, Cancelled, or Payment expired");
+                  return;
+                }
+                handleBulkCancelOrderClick();
+              }}
             >
               Cancel Order
             </Button>
@@ -1085,53 +1137,61 @@ export default function OrdersPage() {
                               <Eye size={16} /> View More Info
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-2 py-2.5 text-green-600"
-                            onClick={() => {
-                              setSelectedOrderForAction(order.id);
-                              setCustomMessage("");
-                              setNotifyVendorOpen(true);
-                            }}
-                          >
-                            <img
-                              src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
-                              className="w-4 h-4"
-                              alt=""
-                            />
-                            Notify Vendor...
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-2 py-2.5 text-blue-500"
-                            onClick={() => {
-                              setSelectedOrderForAction(order.id);
-                              setCustomMessage("");
-                              setNotifyCustomerOpen(true);
-                            }}
-                          >
-                            <MessageSquare size={16} /> Notify Customer...
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-2 py-2.5"
-                            onClick={() => {
-                              setSelectedOrderForAction(order.id);
-                              setSelectedStatusKey("");
-                              setStatusChangeReason("");
-                              setStatusChangePassword("");
-                              setStatusChangeError(null);
-                              setMarkOrderAsOpen(true);
-                            }}
-                          >
-                            <CheckCircle2 size={16} /> Mark Order as...
-                          </DropdownMenuItem>
-                          <div className="h-px bg-gray-100 my-1" />
-                          <DropdownMenuItem
-                            className="gap-2 py-2.5 text-red-500"
-                            onClick={() =>
-                              handleCancelOrderClick(order.id, order.orderId)
-                            }
-                          >
-                            <Ban size={16} /> Cancel Order
-                          </DropdownMenuItem>
+                          {!["Delivered", "Cancelled", "Payment expired"].includes(order.status) && (
+                            <>
+                              <DropdownMenuItem
+                                className="gap-2 py-2.5 text-green-600"
+                                onClick={() => {
+                                  setSelectedOrderForAction(order.id);
+                                  setCustomMessage("");
+                                  setNotifyVendorOpen(true);
+                                }}
+                              >
+                                <img
+                                  src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+                                  className="w-4 h-4"
+                                  alt=""
+                                />
+                                Notify Vendor...
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2 py-2.5 text-blue-500"
+                                onClick={() => {
+                                  setSelectedOrderForAction(order.id);
+                                  setCustomMessage("");
+                                  setNotifyCustomerOpen(true);
+                                }}
+                              >
+                                <MessageSquare size={16} /> Notify Customer...
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2 py-2.5"
+                                onClick={() => {
+                                  setSelectedOrderForAction(order.id);
+                                  setSelectedStatusKey("");
+                                  setStatusChangeReason("");
+                                  setStatusChangePassword("");
+                                  setStatusChangeError(null);
+                                  setMarkOrderAsOpen(true);
+                                }}
+                              >
+                                <CheckCircle2 size={16} /> Mark Order as...
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {!["Delivered", "Cancelled", "Payment expired"].includes(order.status) && (
+                            <>
+                              <div className="h-px bg-gray-100 my-1" />
+                              <DropdownMenuItem
+                                className="gap-2 py-2.5 text-red-500"
+                                onClick={() =>
+                                  handleCancelOrderClick(order.id, order.orderId)
+                                }
+                              >
+                                <Ban size={16} /> Cancel Order
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1566,127 +1626,206 @@ export default function OrdersPage() {
         </div>
       </CustomModal>
 
-      {/* Assign Courier Modal */}
+      {/* Assign Rider Modal */}
       <CustomModal
         isOpen={assignCourierOpen}
-        onClose={() => setAssignCourierOpen(false)}
-        title={
-          selectedOrderForAction
-            ? allOrders
-                .find((o) => o.id === selectedOrderForAction)
-                ?.status.includes("delivery")
-              ? "Assign Couriers for Order Delivery"
-              : "Assign Couriers for Order Pick-Up"
-            : "Assign Couriers"
-        }
+        onClose={() => {
+          setAssignCourierOpen(false);
+          setRiderSearch("");
+          setSelectedRiderId(null);
+          setAssignRiderReason("");
+        }}
+        title="Assign Rider"
         maxWidth="sm:max-w-[680px]"
         footer={
           <>
             <Button
               variant="outline"
-              onClick={() => setAssignCourierOpen(false)}
+              onClick={() => {
+                setAssignCourierOpen(false);
+                setRiderSearch("");
+                setSelectedRiderId(null);
+                setAssignRiderReason("");
+              }}
+              disabled={isAssigningRider}
             >
               Cancel
             </Button>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => {
-                toast.success("Courier assigned successfully");
-                setAssignCourierOpen(false);
+              disabled={!selectedRiderId || !assignRiderReason.trim() || isAssigningRider}
+              onClick={async () => {
+                if (!selectedRiderId || !selectedOrderForAction) return;
+                setIsAssigningRider(true);
+                try {
+                  const order = allOrders.find(
+                    (o) => o.id === selectedOrderForAction,
+                  );
+                  if (!order) {
+                    toast.error("Order not found");
+                    return;
+                  }
+                  const res = await authenticatedFetch(
+                    `/admin/orders/${order.orderId}/assign-rider`,
+                    {
+                      method: "PATCH",
+                      body: JSON.stringify({ riderId: selectedRiderId, reason: assignRiderReason.trim() }),
+                    },
+                  );
+                  const result = await parseApiResponse(res);
+                  console.log(result)
+                  if (result?.success) {
+                    toast.success("Rider assigned successfully");
+                    setAssignCourierOpen(false);
+                    setRiderSearch("");
+                    setSelectedRiderId(null);
+                    setAssignRiderReason("");
+                    fetchOrders();
+                  } else {
+                    toast.error(result?.message || "Failed to assign rider");
+                  }
+                } catch (err) {
+                  toast.error("Failed to assign rider");
+                } finally {
+                  setIsAssigningRider(false);
+                }
               }}
             >
-              Assign Couriers
+              {isAssigningRider ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                "Assign Rider"
+              )}
             </Button>
           </>
         }
       >
         <div className="space-y-6">
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-1">
-              Shipping address
-            </p>
-            <p className="text-sm text-gray-600">
-              {selectedOrderForAction
-                ? allOrders.find((o) => o.id === selectedOrderForAction)
-                    ?.shippingAddress
-                : "No order selected"}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 border-b pb-3">
-            <Button
-              variant={courierTab === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setCourierTab("all")}
-            >
-              All ({couriers.length})
-            </Button>
-            <Button
-              variant={courierTab === "unassigned" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setCourierTab("unassigned")}
-            >
-              Unassigned ({couriers.filter((c) => c.assignments === 0).length})
-            </Button>
-          </div>
-
           <Input
-            placeholder="Search courier by name, email or by locations"
-            value={courierSearch}
-            onChange={(e) => setCourierSearch(e.target.value)}
-            className="max-w-md"
+            placeholder="Search rider by name, email or location"
+            value={riderSearch}
+            onChange={(e) => setRiderSearch(e.target.value)}
           />
 
-          <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
-            {filteredCouriers.length === 0 ? (
+          <div className="space-y-0 max-h-[380px] overflow-y-auto pr-1">
+            {isLoadingRiders ? (
+              <div className="flex items-center justify-center py-12 text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                <span className="text-sm">Loading riders...</span>
+              </div>
+            ) : filteredRiders.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
                 <p className="text-sm">
-                  No {courierTab === "unassigned" ? "unassigned " : ""}courier
-                  found for these locations
+                  No riders found{riderSearch.trim() ? " matching your search" : ""}
                 </p>
-                <Button
-                  variant="link"
-                  className="mt-2 text-orange-600"
-                  onClick={() => {
-                    setCourierSearch("");
-                    setCourierTab("all");
-                  }}
-                >
-                  Show All Couriers Instead
-                </Button>
+                {riderSearch.trim() && (
+                  <Button
+                    variant="link"
+                    className="mt-2 text-orange-600"
+                    onClick={() => setRiderSearch("")}
+                  >
+                    Clear Search
+                  </Button>
+                )}
               </div>
             ) : (
-              filteredCouriers.map((courier) => (
-                <div
-                  key={courier.id}
-                  className="flex items-center justify-between py-3 border-b last:border-b-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <input type="radio" name="courier" className="h-4 w-4" />
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {courier.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {courier.locations}
-                      </p>
-                      {courier.assignments > 0 && (
-                        <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                          Assigned ({courier.assignments})
-                        </span>
-                      )}
+              filteredRiders.map((rider) => (
+                <React.Fragment key={rider.id}>
+                  <div
+                    className={cn(
+                      "flex items-center justify-between py-3 px-3 border-b last:border-b-0 rounded-md cursor-pointer transition-colors",
+                      selectedRiderId === rider.id
+                        ? "bg-orange-50 border-orange-200"
+                        : "hover:bg-gray-50",
+                      rider.isAssignedToOrder && "bg-green-50",
+                    )}
+                    onClick={() => {
+                      if (selectedRiderId !== rider.id) {
+                        setSelectedRiderId(rider.id);
+                        setAssignRiderReason("");
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name="rider"
+                        className="h-4 w-4 accent-orange-500"
+                        checked={selectedRiderId === rider.id}
+                        onChange={() => {
+                          if (selectedRiderId !== rider.id) {
+                            setSelectedRiderId(rider.id);
+                            setAssignRiderReason("");
+                          }
+                        }}
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">
+                          {rider.user.firstName} {rider.user.lastName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {[rider.streetName, rider.lgaName]
+                            .filter(Boolean)
+                            .join(", ") || "No location"}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {rider.isAssignedToOrder && (
+                            <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium bg-green-100 text-green-700 rounded-full">
+                              Assigned to this order
+                            </span>
+                          )}
+                          {rider.assignedOrdersCount > 0 && !rider.isAssignedToOrder && (
+                            <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium bg-blue-100 text-blue-800 rounded-full">
+                              {rider.assignedOrdersCount} active order{rider.assignedOrdersCount !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-gray-400">
+                            {rider.remainingAssignableOrders} slot{rider.remainingAssignableOrders !== 1 ? "s" : ""} remaining
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
+                          rider.onlineStatus === "ONLINE"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            rider.onlineStatus === "ONLINE"
+                              ? "bg-green-500"
+                              : "bg-gray-400",
+                          )}
+                        />
+                        {rider.onlineStatus === "ONLINE" ? "Online" : "Offline"}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {courier.status === "busy" && (
-                      <span className="text-xs text-orange-600 font-medium">
-                        Busy
-                      </span>
-                    )}
-                    <MoreHorizontal className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
+                  {selectedRiderId === rider.id && (
+                    <div className="py-2 px-3 mb-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Reason for assigning this rider
+                      </label>
+                      <textarea
+                        value={assignRiderReason}
+                        onChange={(e) => setAssignRiderReason(e.target.value)}
+                        placeholder="e.g. Manual override by admin, closest to delivery location..."
+                        rows={2}
+                        className="w-full border border-gray-300 rounded-md p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                </React.Fragment>
               ))
             )}
           </div>

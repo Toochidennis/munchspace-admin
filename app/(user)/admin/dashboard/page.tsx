@@ -21,9 +21,13 @@ import { cn } from "@/lib/utils";
 import { OrdersView } from "./_components/OrdersView";
 import { VendorsView } from "./_components/VendorsView";
 import { SalesView } from "./_components/SalesView";
+import { RidersView } from "./_components/RidersView";
+import { Bike } from "lucide-react";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("orders");
+  const [range, setRange] = useState("last_30_days");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -80,6 +84,18 @@ export default function DashboardPage() {
                 <span className="font-medium text-sm">Vendors</span>
               </TabsTrigger>
               <TabsTrigger
+                value="riders"
+                className="gap-2 px-6 py-4.5 data-[state=active]:bg-gray-100 border border-gray-300 border-r-0 data-[state=active]:border data-[state=active]:border-munchprimary rounded-none"
+              >
+                <Bike
+                  size={18}
+                  className={
+                    activeTab === "riders" ? "text-orange-500" : "text-slate-400"
+                  }
+                />{" "}
+                <span className="font-medium text-sm">Riders</span>
+              </TabsTrigger>
+              <TabsTrigger
                 value="sales"
                 className="gap-2 px-6 py-4.5 data-[state=active]:bg-gray-100 border border-gray-300 data-[state=active]:border data-[state=active]:border-munchprimary rounded rounded-s-none"
               >
@@ -94,24 +110,33 @@ export default function DashboardPage() {
             </TabsList>
           </Tabs>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => setRefreshTrigger(p => p + 1)}>
               <RefreshCcw size={18} />
             </Button>
-            <Select defaultValue="Last 30 days">
+            <Select value={range} onValueChange={setRange}>
               <SelectTrigger className="w-[180px] rounded-md">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Today">Today</SelectItem>
-                <SelectItem value="Last 30 days">Last 30 days</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                <SelectItem value="last_week">Last week</SelectItem>
+                <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                <SelectItem value="last_90_days">Last 90 days</SelectItem>
+                <SelectItem value="last_6_months">Last 6 months</SelectItem>
+                <SelectItem value="this_month">This month</SelectItem>
+                <SelectItem value="last_month">Last month</SelectItem>
+                <SelectItem value="this_year">This year</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {activeTab === "orders" && <OrdersView />}
-        {activeTab === "vendors" && <VendorsView />}
-        {activeTab === "sales" && <SalesView />}
+        {activeTab === "orders" && <OrdersView range={range} refreshTrigger={refreshTrigger} />}
+        {activeTab === "vendors" && <VendorsView range={range} refreshTrigger={refreshTrigger} />}
+        {activeTab === "riders" && <RidersView range={range} refreshTrigger={refreshTrigger} />}
+        {activeTab === "sales" && <SalesView range={range} refreshTrigger={refreshTrigger} />}
       </main>
     </div>
   );
