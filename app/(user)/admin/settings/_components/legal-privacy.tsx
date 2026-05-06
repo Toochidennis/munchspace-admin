@@ -15,26 +15,56 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
-const CustomDialog = ({ isOpen, onClose, title, children }: any) => {
+function CustomModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  maxWidth = "sm:max-w-[640px]",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  maxWidth?: string;
+}) {
   if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-[#F8F9FA] w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
-          <h2 className="font-bold text-[#1A1C1E]">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
+          maxWidth,
+        )}
+      >
+        <div className="flex border-b items-center justify-between px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <button
+            className="text-gray-400 hover:text-gray-600 transition-colors"
             onClick={onClose}
-            className="p-1 hover:bg-slate-200 rounded-full text-slate-500"
           >
-            <X size={20} />
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="overflow-y-auto bg-white flex-1">{children}</div>
+        <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
-};
+}
 
 const documents = [
   { id: 'terms_of_service', title: 'Terms of Use', desc: 'Establish the contractual terms that govern platform usage by customers and stakeholders.' },
@@ -141,7 +171,7 @@ export function LegalPrivacy() {
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-[#1A1C1E]">Legal & Privacy</h2>
+        <h2 className="text-2xl font-semibold text-[#1A1C1E]">Legal & Privacy</h2>
         <p className="text-[15px] text-slate-500 mt-1">Manage and update platform legal documents.</p>
       </div>
       
@@ -150,11 +180,11 @@ export function LegalPrivacy() {
           <Card key={doc.id} className="border border-slate-200 shadow-sm bg-white rounded-xl overflow-hidden">
             <CardContent className="flex flex-col sm:flex-row justify-between sm:items-center p-6 gap-4">
               <div className="space-y-2">
-                <CardTitle className="text-[17px] font-bold text-[#1A1C1E]">{doc.title}</CardTitle>
+                <CardTitle className="text-[17px] font-semibold text-[#1A1C1E]">{doc.title}</CardTitle>
                 <CardDescription className="text-[15px] text-slate-500 max-w-2xl leading-relaxed">
                   {doc.desc}
                 </CardDescription>
-                <div className="text-[14px] text-slate-400 font-medium pt-2 flex items-center gap-1.5">
+                <div className="text-[14px] text-slate-400 font-semibold pt-2 flex items-center gap-1.5">
                   <Clock size={14} />
                   {legalDocsData[doc.id]?.lastUpdatedAt 
                     ? `Last updated: ${format(new Date(legalDocsData[doc.id].lastUpdatedAt), "MMM d, yyyy")}`
@@ -163,7 +193,7 @@ export function LegalPrivacy() {
               </div>
               <Button
                 variant="outline"
-                className="gap-2 h-10 border-slate-200 text-slate-600 font-semibold self-start sm:self-center hover:bg-slate-50"
+                className="gap-2 h-10 border-slate-200 text-slate-600 font-medium self-start sm:self-center hover:bg-slate-50"
                 onClick={() => {
                   setSelectedDoc(doc);
                   setIsModalOpen(true);
@@ -185,10 +215,30 @@ export function LegalPrivacy() {
         ))}
       </div>
 
-      <CustomDialog
+      <CustomModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={`Update ${selectedDoc?.title}`}
+        maxWidth="max-w-3xl"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setIsModalOpen(false)}
+              className="h-[42px] px-6 font-semibold text-slate-700 border-slate-300 rounded-lg hover:bg-slate-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || !content.trim()}
+              className="h-[42px] px-6 font-medium bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-lg shadow-sm"
+            >
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save & Publish
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col h-full bg-[#F8F9FA]">
           <div className="p-6 pb-2">
@@ -229,7 +279,7 @@ export function LegalPrivacy() {
                   onCheckedChange={(c) => setNotifyVendorAndRider(!!c)}
                   className="data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35] h-5 w-5 rounded-[4px]"
                 />
-                <Label htmlFor="notify-riders" className="text-[15px] font-bold text-[#1A1C1E] cursor-pointer">
+                <Label htmlFor="notify-riders" className="text-[15px] font-semibold text-[#1A1C1E] cursor-pointer">
                   Riders & vendors
                 </Label>
               </div>
@@ -240,32 +290,15 @@ export function LegalPrivacy() {
                   onCheckedChange={(c) => setNotifyCustomers(!!c)}
                   className="data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35] h-5 w-5 rounded-[4px]"
                 />
-                <Label htmlFor="notify-customers" className="text-[15px] font-bold text-[#1A1C1E] cursor-pointer">
+                <Label htmlFor="notify-customers" className="text-[15px] font-semibold text-[#1A1C1E] cursor-pointer">
                   Customers
                 </Label>
               </div>
             </div>
           </div>
           
-          <div className="flex justify-end gap-3 p-4 border-t border-slate-200 bg-white mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsModalOpen(false)}
-              className="h-[42px] px-6 font-semibold text-slate-700 border-slate-300 rounded-lg hover:bg-slate-50"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || !content.trim()}
-              className="h-[42px] px-6 font-semibold bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-lg shadow-sm"
-            >
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save & Publish
-            </Button>
-          </div>
         </div>
-      </CustomDialog>
+      </CustomModal>
     </div>
   );
 }

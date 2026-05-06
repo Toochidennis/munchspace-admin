@@ -167,7 +167,7 @@ export default function VendorDetailsPage() {
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-2 border-white flex items-center justify-center">
               {vendor?.businessLogo ? (
                 <img
                   src={vendor.businessLogo}

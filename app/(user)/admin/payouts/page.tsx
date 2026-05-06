@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import Header from "@/components/layout/Header";
 import {
   RotateCcw,
   Calendar as CalendarIcon,
@@ -92,6 +91,55 @@ const RANGE_OPTIONS = [
   { label: "This Year", value: "this_year" },
 ];
 
+function CustomModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  maxWidth = "sm:max-w-[640px]",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  maxWidth?: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
+          maxWidth,
+        )}
+      >
+        <div className="flex border-b items-center justify-between px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <button
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [statusGroups, setStatusGroups] = useState<StatusGroup[]>([]);
@@ -109,6 +157,7 @@ export default function PayoutsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState("10");
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
@@ -119,7 +168,7 @@ export default function PayoutsPage() {
     try {
       const queryParams = new URLSearchParams({
         page: currentPage.toString(),
-        limit: "20",
+        limit: pageSize,
         status: activeStatusTab,
         ownerType: ownerTypeFilter,
         ...(searchQuery && { search: searchQuery }),
@@ -149,7 +198,31 @@ export default function PayoutsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, selectedRange, activeStatusTab, ownerTypeFilter, searchQuery, startDate, endDate]);
+  }, [currentPage, pageSize, selectedRange, activeStatusTab, ownerTypeFilter, searchQuery, startDate, endDate]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (currentPage > 3) pages.push("...");
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    if (currentPage < totalPages - 2) pages.push("...");
+
+    if (totalPages > 1) pages.push(totalPages);
+
+    return pages;
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -201,10 +274,10 @@ export default function PayoutsPage() {
     return [{ status: { key: "all", label: "All" }, total: totalCount }, ...filteredGroups];
   }, [statusGroups, totalCount]);
 
-  return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#FAFBFC]">
-      <Header title="Payouts" />
+  const gridLayout = "grid grid-cols-[160px_1fr_1fr_130px_150px_150px_60px]";
 
+  return (
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-y-auto p-6 md:p-8 font-inter">
         <div className="max-w-[1400px] mx-auto space-y-6">
           
@@ -241,7 +314,7 @@ export default function PayoutsPage() {
           </div>
 
           {/* Card Container */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
             
             {/* Search & Actions Bar */}
             <div className="flex items-center justify-between gap-4">
@@ -369,7 +442,7 @@ export default function PayoutsPage() {
             )}
 
             {/* Status Tabs */}
-            <div className="flex gap-6 overflow-x-auto border-b border-gray-100 scrollbar-hide">
+            <div className="flex gap-6 border-b overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.status.key}
@@ -378,27 +451,26 @@ export default function PayoutsPage() {
                     setCurrentPage(1);
                   }}
                   className={cn(
-                    "pb-3 text-sm font-bold relative whitespace-nowrap transition-all",
+                    "pb-3 text-sm font-medium relative whitespace-nowrap",
                     activeStatusTab === tab.status.key
                       ? "text-[#E86B35] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#E86B35]"
-                      : "text-gray-400 hover:text-gray-600"
+                      : "text-gray-500 hover:text-gray-700"
                   )}
                 >
-                  {tab.status.label} {tab.total > 0 ? `(${tab.total})` : ""}
+                  {tab.status.label} ({tab.total})
                 </button>
               ))}
             </div>
 
             {/* Selection Actions */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-gray-900">
-                Selected: {selectedIds.length}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm">
+                Selected: <strong>{selectedIds.length}</strong>
               </span>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={selectedIds.length === 0}
-                className="bg-gray-50 text-gray-400 border-gray-200 font-bold shadow-none h-8 text-[10px] uppercase disabled:opacity-50"
               >
                 Recheck Status
               </Button>
@@ -406,152 +478,189 @@ export default function PayoutsPage() {
                 variant="outline"
                 size="sm"
                 disabled={selectedIds.length === 0}
-                className="bg-gray-50 text-gray-400 border-gray-100 font-bold shadow-none h-8 text-[10px] uppercase disabled:opacity-50"
               >
                 Retry Payout
               </Button>
             </div>
 
             {/* Table */}
-            <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#F8FAFC] border-b border-gray-100 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="px-4 py-3 w-[40px]">
-                      <Checkbox
-                        checked={selectedIds.length === payouts.length && payouts.length > 0}
-                        onCheckedChange={handleSelectAll}
-                        className="rounded border-gray-300 shadow-none"
-                      />
-                    </th>
-                    <th className="px-4 py-3 border-r border-gray-100">Amount</th>
-                    <th className="px-4 py-3 border-r border-gray-100">Recipient</th>
-                    <th className="px-4 py-3 border-r border-gray-100">Type</th>
-                    <th className="px-4 py-3 border-r border-gray-100">Status</th>
-                    <th className="px-4 py-3 border-r border-gray-100">Payout ID</th>
-                    <th className="px-4 py-3 border-r border-gray-100">Date</th>
-                    <th className="px-4 py-3 w-[60px] text-center">-</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={8} className="py-20 text-center">
-                        <div className="flex flex-col items-center gap-3">
-                          <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
-                          <p className="text-gray-400 font-medium italic">Fetching payouts...</p>
+            <div className="space-y-0 border border-gray-200 rounded-md overflow-hidden">
+              <div
+                className={cn(
+                  gridLayout,
+                  "bg-[#F9FAFB] text-gray-900 border-b border-gray-200 text-sm font-medium",
+                )}
+              >
+                <div className="flex items-center gap-3 border-r border-gray-200 py-3 pl-4">
+                  <Checkbox
+                    checked={selectedIds.length === payouts.length && payouts.length > 0}
+                    onCheckedChange={handleSelectAll}
+                    className="rounded-sm"
+                  />
+                  Amount
+                </div>
+                <div className="py-3 pl-4 border-r border-gray-200">Recipient</div>
+                <div className="py-3 pl-4 border-r border-gray-200">Type</div>
+                <div className="py-3 pl-4 border-r border-gray-200">Status</div>
+                <div className="py-3 pl-4 border-r border-gray-200">Payout ID</div>
+                <div className="py-3 pl-4 border-r border-gray-200">Date</div>
+                <div className="flex justify-center items-center py-3">-</div>
+              </div>
+
+              {/* Table Rows */}
+              {isLoading ? (
+                <div className="py-20 text-center bg-white">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#E86B35]" />
+                    <p className="text-gray-500 font-medium text-sm">Loading payouts...</p>
+                  </div>
+                </div>
+              ) : payouts.length === 0 ? (
+                <div className="py-20 text-center text-gray-500 font-medium bg-white text-sm">
+                  No payouts found.
+                </div>
+              ) : (
+                payouts.map((payout) => (
+                  <div
+                    key={payout.payoutId}
+                    className="border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className={cn(gridLayout, "text-sm items-stretch bg-white")}>
+                      <div className="flex items-center gap-3 border-r border-gray-100 py-4 pl-4 font-medium text-gray-900">
+                        <Checkbox
+                          checked={selectedIds.includes(payout.payoutId)}
+                          onCheckedChange={(checked) => handleSelectOne(payout.payoutId, !!checked)}
+                          className="rounded-sm"
+                        />
+                        {payout.currency} {payout.amount.toLocaleString()}
+                      </div>
+                      <div className="flex items-center pl-4 border-r border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{payout.ownerName}</span>
+                          <span className="text-[10px] text-gray-500 uppercase">{payout.ownerType}</span>
                         </div>
-                      </td>
-                    </tr>
-                  ) : payouts.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-20 text-center text-gray-500 font-medium italic">
-                        No payouts found matching your criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    payouts.map((payout) => (
-                      <tr key={payout.payoutId} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-4 py-4 border-r border-gray-100">
-                          <Checkbox
-                            checked={selectedIds.includes(payout.payoutId)}
-                            onCheckedChange={(checked) => handleSelectOne(payout.payoutId, !!checked)}
-                            className="rounded border-gray-300 shadow-none"
-                          />
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-100 font-bold text-gray-900">
-                          {payout.currency} {payout.amount.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-100">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900">{payout.ownerName}</span>
-                            <span className="text-[10px] text-gray-400 uppercase font-medium">{payout.ownerType}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-100 text-gray-500 capitalize">{payout.payoutType}</td>
-                        <td className="px-4 py-4 border-r border-gray-100">
-                          <Badge className={cn(
-                            "border-none px-3 py-1 rounded-md text-[10px] font-bold uppercase",
-                            payout.status.toLowerCase() === "paid" ? "bg-[#22C55E] text-white" : 
-                            payout.status.toLowerCase() === "pending" || payout.status.toLowerCase() === "processing" ? "bg-[#FDB022] text-white" : 
-                            "bg-[#F04438] text-white"
-                          )}>
-                            {payout.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4 border-r border-gray-100 text-gray-500 font-medium">{payout.code}</td>
-                        <td className="px-4 py-4 border-r border-gray-100 text-gray-500">
-                          {format(new Date(payout.createdAt), "MMM d, yyyy h:mm a")}
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400">
-                                <MoreHorizontal size={18} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem 
-                                onClick={() => handleViewMetadata(payout)}
-                                className="text-xs font-semibold cursor-pointer"
-                              >
-                                View Metadata
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-xs font-semibold cursor-pointer">
-                                Export Receipt
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                      </div>
+                      <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 capitalize">
+                        {payout.payoutType}
+                      </div>
+                      <div className="flex items-center border-r border-gray-100 px-4">
+                        <span className={cn(
+                          "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap w-full text-center",
+                          payout.status.toLowerCase() === "paid" ? "bg-green-100 text-green-700" : 
+                          payout.status.toLowerCase() === "pending" || payout.status.toLowerCase() === "processing" ? "bg-yellow-100 text-yellow-700" : 
+                          "bg-red-100 text-red-700"
+                        )}>
+                          {payout.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 font-medium">
+                        {payout.code}
+                      </div>
+                      <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 truncate">
+                        {format(new Date(payout.createdAt), "MMM d, yyyy HH:mm")}
+                      </div>
+                      <div className="flex justify-center items-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal size={18} className="text-gray-400" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-md w-48">
+                            <DropdownMenuItem 
+                              className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                              onClick={() => handleViewMetadata(payout)}
+                            >
+                              <Copy size={16} /> View Metadata
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                            >
+                              <Download size={16} /> Export Receipt
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-6 text-sm py-4">
-                <p className="text-gray-500 font-medium">
-                  Total <span className="text-gray-900 font-bold">{totalCount} items</span>
+            {!isLoading && totalCount > 0 && (
+              <div className="flex items-center justify-center gap-6 text-sm border-t pt-6 pb-6">
+                <p className="text-gray-500">
+                  Total{" "}
+                  <span className="text-gray-900 font-medium">
+                    {totalCount} items
+                  </span>
                 </p>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-gray-400 hover:text-orange-500" 
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded"
                     disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => p - 1)}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   >
                     <ChevronLeft size={18} />
                   </Button>
+
                   <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    {getPageNumbers().map((page, i) => (
                       <Button
-                        key={page}
-                        variant={page === currentPage ? "outline" : "ghost"}
+                        key={i}
+                        variant={currentPage === page ? "default" : "ghost"}
                         size="sm"
                         className={cn(
-                          "h-8 w-8 rounded-md font-bold text-xs transition-all",
-                          page === currentPage ? "border-[#E86B35] text-[#E86B35]" : "text-gray-400"
+                          "h-8 w-8 rounded font-medium min-w-[32px]",
+                          currentPage === page
+                            ? "bg-orange-500 text-white hover:bg-orange-600"
+                            : "text-gray-500 hover:bg-gray-100",
+                          typeof page === "string" &&
+                            "cursor-default hover:bg-transparent"
                         )}
-                        onClick={() => setCurrentPage(page)}
+                        disabled={typeof page === "string"}
+                        onClick={() =>
+                          typeof page === "number" && setCurrentPage(page)
+                        }
                       >
                         {page}
                       </Button>
                     ))}
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-gray-400 hover:text-orange-500"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(p => p + 1)}
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded"
+                    disabled={currentPage >= totalPages}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                   >
                     <ChevronRight size={18} />
                   </Button>
                 </div>
+
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(v) => {
+                    setPageSize(v);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 / page</SelectItem>
+                    <SelectItem value="20">20 / page</SelectItem>
+                    <SelectItem value="50">50 / page</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
@@ -559,52 +668,39 @@ export default function PayoutsPage() {
       </div>
 
       {/* Metadata Modal */}
-      {metadataModalOpen && metadataContent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Payout Metadata</h3>
-                <p className="text-xs text-gray-400 mt-1 uppercase font-bold tracking-wider">
-                  Reference: {metadataContent.code}
-                </p>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setMetadataModalOpen(false)}
-                className="rounded-full hover:bg-gray-100"
+      <CustomModal
+        isOpen={metadataModalOpen}
+        onClose={() => setMetadataModalOpen(false)}
+        title="Payout Metadata"
+        maxWidth="sm:max-w-[680px]"
+        footer={
+          <Button
+            variant="outline"
+            onClick={() => fetchPayouts()}
+          >
+            <RotateCcw size={16} className="mr-2" />
+            Recheck Status
+          </Button>
+        }
+      >
+        <div className="bg-[#111827] rounded-md p-6 relative min-h-[400px] flex flex-col justify-center">
+          {metadataContent ? (
+            <>
+              <button 
+                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
+                onClick={handleCopyMetadata}
               >
-                <X size={20} className="text-gray-400" />
-              </Button>
-            </div>
-            <div className="p-6 bg-[#111827]">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">JSON Payload</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleCopyMetadata}
-                  className="h-8 text-gray-400 hover:text-white hover:bg-white/10 text-[10px] font-bold uppercase gap-2"
-                >
-                  <Copy size={14} /> Copy to clipboard
-                </Button>
-              </div>
-              <pre className="text-[#9CA3AF] text-xs font-mono overflow-x-auto h-[400px] scrollbar-hide p-4 bg-black/20 rounded-xl leading-relaxed">
+                <Copy size={20} />
+              </button>
+              <pre className="text-[#9CA3AF] text-sm font-mono overflow-x-auto h-[400px] scrollbar-hide leading-relaxed">
                 {JSON.stringify(metadataContent, null, 2)}
               </pre>
-            </div>
-            <div className="p-6 bg-white border-t border-gray-100 flex justify-end">
-              <Button 
-                onClick={() => setMetadataModalOpen(false)}
-                className="bg-[#E86B35] hover:bg-[#D15A2A] text-white font-bold px-8 h-11 rounded-lg transition-colors"
-              >
-                Close Metadata View
-              </Button>
-            </div>
-          </div>
+            </>
+          ) : (
+            <p className="text-white/50 text-center">Failed to load metadata</p>
+          )}
         </div>
-      )}
+      </CustomModal>
     </div>
   );
 }

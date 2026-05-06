@@ -116,7 +116,7 @@ export default function DeliveriesTab({ riderId }: { riderId: string }) {
 
   return (
     <div className="w-full animate-in fade-in duration-500">
-      <Card className="border border-gray-100 shadow-sm rounded-xl bg-white p-6">
+      <Card className="border border-gray-100 rounded-xl bg-white p-6">
         
         {/* Header Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">

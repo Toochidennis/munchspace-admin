@@ -107,7 +107,7 @@ export default function DetailsTab({ riderId }: { riderId: string }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Personal Information Card */}
-      <Card className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white">
+      <Card className="p-6 border border-gray-100 rounded-xl bg-white">
         <h3 className="text-lg font-bold text-gray-900 mb-6">
           Personal Information
         </h3>
@@ -126,7 +126,7 @@ export default function DetailsTab({ riderId }: { riderId: string }) {
       </Card>
 
       {/* Address Information Card */}
-      <Card className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white">
+      <Card className="p-6 border border-gray-100 rounded-xl bg-white">
         <h3 className="text-lg font-bold text-gray-900 mb-6">
           Address Information
         </h3>
@@ -145,7 +145,7 @@ export default function DetailsTab({ riderId }: { riderId: string }) {
       </Card>
 
       {/* Bank Account */}
-      <Card className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white">
+      <Card className="p-6 border border-gray-100 rounded-xl bg-white">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold text-[8px] leading-tight text-center p-2 uppercase">
             {data.accountDetails.bankName || "BANK"}

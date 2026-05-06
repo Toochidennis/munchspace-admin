@@ -192,6 +192,30 @@ export default function RidersPage() {
     }
   }, [currentPage, itemsPerPage, activeTab, dateRange, searchQuery, startDate, endDate]);
 
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return pages;
+    }
+
+    pages.push(1);
+
+    if (currentPage > 3) pages.push("...");
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    if (currentPage < totalPages - 2) pages.push("...");
+
+    if (totalPages > 1) pages.push(totalPages);
+
+    return pages;
+  };
+
   useEffect(() => {
     fetchRiders();
   }, [fetchRiders]);
@@ -366,11 +390,13 @@ export default function RidersPage() {
   const totalItems = ridersData?.data?.total || 0;
   const totalPages = ridersData?.data?.totalPages || 0;
 
+  const gridLayout = "grid grid-cols-[220px_1fr_140px_150px_60px]";
+
   return (
     <div className="p-8 bg-[#F9FAFB] min-h-screen">
       <div className="max-w-[1400px] mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-semibold text-gray-900">
             Total ({totalItems})
           </h1>
           <div className="flex items-center gap-3">
@@ -399,7 +425,7 @@ export default function RidersPage() {
           </div>
         </div>
 
-        <div className="border border-gray-200 rounded-xl p-6 shadow-sm space-y-6 bg-white">
+        <div className="border border-gray-200 rounded-xl p-6 space-y-6 bg-white">
           {/* Search + Actions Bar */}
           <div className="flex items-center justify-between gap-4">
             <div className="relative w-full max-w-md">
@@ -483,8 +509,8 @@ export default function RidersPage() {
             </div>
           )}
 
-          {/* Dynamic Tabs */}
-          <div className="flex gap-6 border-b overflow-x-auto scrollbar-hide">
+          {/* Tabs */}
+          <div className="flex gap-6 border-b overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.status.key}
@@ -505,29 +531,44 @@ export default function RidersPage() {
           </div>
 
           {/* Bulk Actions */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-gray-900">
-              Selected: {selectedRiders.length}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm">
+              Selected: <strong>{selectedRiders.length}</strong>
             </span>
             <Button
-              disabled={selectedRiders.length === 0}
               variant="outline"
-              className="h-9 bg-[#F9FAFB] border-gray-200 text-gray-400 font-bold text-xs"
+              size="sm"
+              disabled={selectedRiders.length === 0}
+              onClick={() => {
+                // If single selected, pre-set action modal
+                if (selectedRiders.length === 1) {
+                  const rider = riders.find(r => r.riderId === selectedRiders[0]);
+                  setSelectedRiderForAction(rider || null);
+                }
+                setMarkAsModalOpen(true);
+              }}
             >
               Mark Rider As...
             </Button>
             <Button
-              disabled={selectedRiders.length === 0}
               variant="outline"
-              className="h-9 bg-[#F9FAFB] border-gray-200 text-gray-400 font-bold text-xs"
-              onClick={() => setNotifyModalOpen(true)}
+              size="sm"
+              disabled={selectedRiders.length === 0}
+              onClick={() => {
+                if (selectedRiders.length === 1) {
+                  const rider = riders.find(r => r.riderId === selectedRiders[0]);
+                  setSelectedRiderForAction(rider || null);
+                }
+                setNotifyModalOpen(true);
+              }}
             >
               Notify Rider...
             </Button>
             <Button
-              disabled={selectedRiders.length === 0 || isProcessing}
               variant="outline"
-              className="h-9 bg-[#F9FAFB] border-gray-200 text-gray-400 font-bold text-xs"
+              size="sm"
+              className="text-red-400 border-gray-100"
+              disabled={selectedRiders.length === 0 || isProcessing}
               onClick={handleBulkSuspendClick}
             >
               {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
@@ -535,184 +576,223 @@ export default function RidersPage() {
             </Button>
           </div>
 
-          {/* Riders Table */}
-          <div className="border border-gray-100 rounded-xl overflow-hidden bg-white">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-[#F8FAFC] text-gray-500 font-bold uppercase text-[11px] tracking-wider">
-                <tr>
-                  <th className="p-4 w-12">
-                    <Checkbox
-                      checked={selectedRiders.length === riders.length && riders.length > 0}
-                      onCheckedChange={() => {
-                        if (selectedRiders.length === riders.length) setSelectedRiders([]);
-                        else setSelectedRiders(riders.map(r => r.riderId));
-                      }}
-                      className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
-                    />
-                  </th>
-                  <th className="p-4">Rider Name</th>
-                  <th className="p-4">Reg Date</th>
-                  <th className="p-4">Online Status</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4 text-center">-</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="p-20 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#E86B35] mx-auto" />
-                    </td>
-                  </tr>
-                ) : riders.length > 0 ? (
-                  riders.map((rider) => (
-                    <tr key={rider.riderId} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="p-4">
-                        <Checkbox
-                          checked={selectedRiders.includes(rider.riderId)}
-                          onCheckedChange={() =>
-                            setSelectedRiders(prev =>
-                              prev.includes(rider.riderId)
-                                ? prev.filter(id => id !== rider.riderId)
-                                : [...prev, rider.riderId]
-                            )
-                          }
-                          className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
-                        />
-                      </td>
-                      <td className="p-4 font-bold text-gray-900">{rider.fullName}</td>
-                      <td className="p-4 text-gray-600">
-                        {new Date(rider.registeredAt).toLocaleString("en-US", {
-                          weekday: "short", month: "short", day: "numeric", year: "numeric",
-                          hour: "2-digit", minute: "2-digit"
-                        })}
-                      </td>
-                      <td className="p-4">
+          {/* Table Header */}
+          <div className="space-y-0 border border-gray-200 rounded-md overflow-hidden">
+            <div
+              className={cn(
+                gridLayout,
+                "bg-[#F9FAFB] text-gray-900 border-b border-gray-200 text-sm font-medium",
+              )}
+            >
+              <div className="flex items-center gap-3 border-r border-gray-200 py-3 pl-4">
+                <Checkbox
+                  className="rounded-sm"
+                  checked={selectedRiders.length === riders.length && riders.length > 0}
+                  onCheckedChange={() => {
+                    if (selectedRiders.length === riders.length) setSelectedRiders([]);
+                    else setSelectedRiders(riders.map(r => r.riderId));
+                  }}
+                />
+                Rider Name
+              </div>
+              <div className="py-3 pl-4 border-r border-gray-200">Reg Date</div>
+              <div className="py-3 pl-4 border-r border-gray-200">Online Status</div>
+              <div className="py-3 pl-4 border-r border-gray-200">Status</div>
+              <div className="flex justify-center items-center py-3">-</div>
+            </div>
+
+            {/* Table Rows */}
+            {isLoading ? (
+              <div className="py-20 text-center bg-white">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-[#E86B35]" />
+                  <p className="text-gray-500 font-medium text-sm">Loading riders...</p>
+                </div>
+              </div>
+            ) : riders.length === 0 ? (
+              <div className="py-20 text-center text-gray-500 font-medium bg-white text-sm">
+                No riders found.
+              </div>
+            ) : (
+              riders.map((rider) => (
+                <div
+                  key={rider.riderId}
+                  className="border-b border-gray-100 last:border-b-0"
+                >
+                  <div className={cn(gridLayout, "text-sm items-stretch bg-white")}>
+                    <div className="flex items-center gap-3 border-r border-gray-100 py-4 pl-4 font-medium text-gray-900">
+                      <Checkbox
+                        className="rounded-sm"
+                        checked={selectedRiders.includes(rider.riderId)}
+                        onCheckedChange={() =>
+                          setSelectedRiders(prev =>
+                            prev.includes(rider.riderId)
+                              ? prev.filter(id => id !== rider.riderId)
+                              : [...prev, rider.riderId]
+                          )
+                        }
+                      />
+                      {rider.fullName}
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 text-gray-600">
+                      {new Date(rider.registeredAt).toLocaleString("en-US", {
+                        weekday: "short", month: "short", day: "numeric", year: "numeric",
+                        hour: "2-digit", minute: "2-digit"
+                      })}
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[11px] font-medium uppercase",
+                        rider.onlineStatus.toLowerCase() === "online" 
+                          ? "bg-green-100 text-green-700" 
+                          : "bg-gray-100 text-gray-700"
+                      )}>
+                        {rider.onlineStatus}
+                      </span>
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100">
+                      <div className="flex items-center gap-3">
                         <span className={cn(
-                          "px-3 py-1 rounded text-[11px] font-bold uppercase",
-                          getOnlineStatusClass(rider.onlineStatus)
+                          "px-2 py-0.5 rounded text-[11px] font-medium uppercase",
+                          rider.status.toLowerCase().includes("approved") ? "bg-green-100 text-green-700" :
+                          rider.status.toLowerCase().includes("pending") ? "bg-yellow-100 text-yellow-700" :
+                          rider.status.toLowerCase().includes("rejected") ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-700"
                         )}>
-                          {rider.onlineStatus}
+                          {rider.status}
                         </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <span className={cn(
-                            "px-3 py-1 rounded text-[11px] font-bold uppercase",
-                            getStatusBadgeClass(rider.status)
-                          )}>
-                            {rider.status}
-                          </span>
-                          {rider.openFlagCount > 0 && (
-                            <Flag size={16} className="text-red-500 fill-red-500" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400">
-                              <MoreHorizontal size={20} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl">
-                            <DropdownMenuItem 
-                              className="gap-3 py-3 font-bold text-xs text-gray-700 cursor-pointer"
-                              onClick={() => router.push(`/admin/riders/${rider.riderId}`)}
-                            >
-                              <Eye size={16} className="text-gray-400" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="gap-3 py-3 font-bold text-xs text-gray-700 cursor-pointer"
-                              onClick={() => {
-                                setSelectedRiderForAction(rider);
-                                setMarkAsModalOpen(true);
-                              }}
-                            >
-                              <UserCheck size={16} className="text-gray-400" /> Mark Rider as...
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="gap-3 py-3 font-bold text-xs text-gray-700 cursor-pointer"
-                              onClick={() => {
-                                setSelectedRiderForAction(rider);
-                                setNotifyModalOpen(true);
-                              }}
-                            >
-                              <Mail size={16} className="text-gray-400" /> Notify Rider...
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className={cn(
-                                "gap-3 py-3 font-bold text-xs border-t mt-1 focus:bg-red-50",
-                                rider.status.toLowerCase() === "suspended" ? "text-green-600 focus:bg-green-50" : "text-red-500"
-                              )}
-                              onClick={() => handleToggleSuspension(rider.riderId, rider.status)}
-                              disabled={isProcessing}
-                            >
-                              <Ban size={16} /> {rider.status.toLowerCase() === "suspended" ? "Unsuspend Rider" : "Suspend Rider"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="p-20 text-center text-gray-400 font-medium">
-                      No riders found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        {rider.openFlagCount > 0 && (
+                          <Flag size={14} className="text-red-500 fill-red-500" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-center items-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal size={18} className="text-gray-400" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-md w-56">
+                          <DropdownMenuItem 
+                            className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                            onClick={() => router.push(`/admin/riders/${rider.riderId}`)}
+                          >
+                            <Eye size={16} /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                            onClick={() => {
+                              setSelectedRiderForAction(rider);
+                              setMarkAsModalOpen(true);
+                            }}
+                          >
+                            <UserCheck size={16} /> Mark Rider as...
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                            onClick={() => {
+                              setSelectedRiderForAction(rider);
+                              setNotifyModalOpen(true);
+                            }}
+                          >
+                            <Mail size={16} /> Notify Rider...
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className={cn(
+                              "flex items-center gap-2 py-2.5 w-full cursor-pointer border-t mt-1",
+                              rider.status.toLowerCase() === "suspended" ? "text-green-600 focus:text-green-700" : "text-red-500 focus:text-red-600"
+                            )}
+                            onClick={() => handleToggleSuspension(rider.riderId, rider.status)}
+                            disabled={isProcessing}
+                          >
+                            <Ban size={16} /> {rider.status.toLowerCase() === "suspended" ? "Unsuspend Rider" : "Suspend Rider"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-center gap-6 pt-6 border-t border-gray-100">
-            <p className="text-gray-500 text-sm">
-              Total <span className="text-gray-900 font-bold">{totalItems} items</span>
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost" size="icon" className="h-8 w-8"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => p - 1)}
-              >
-                <ChevronLeft size={18} />
-              </Button>
+          {!isLoading && totalItems > 0 && (
+            <div className="flex items-center justify-center gap-6 text-sm border-t pt-6 pb-6">
+              <p className="text-gray-500">
+                Total{" "}
+                <span className="text-gray-900 font-medium">
+                  {totalItems} items
+                </span>
+              </p>
+
               <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                  <Button
-                    key={p}
-                    variant={currentPage === p ? "outline" : "ghost"}
-                    className={cn(
-                      "h-8 w-8 font-bold text-xs",
-                      currentPage === p ? "border-[#E86B35] text-[#E86B35]" : "text-gray-500"
-                    )}
-                    onClick={() => setCurrentPage(p)}
-                  >
-                    {p}
-                  </Button>
-                ))}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft size={18} />
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((page, i) => (
+                    <Button
+                      key={i}
+                      variant={currentPage === page ? "default" : "ghost"}
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 rounded font-medium min-w-[32px]",
+                        currentPage === page
+                          ? "bg-[#E86B35] text-white hover:bg-[#d15d2c]"
+                          : "text-gray-500 hover:bg-gray-100",
+                        typeof page === "string" &&
+                          "cursor-default hover:bg-transparent"
+                      )}
+                      disabled={typeof page === "string"}
+                      onClick={() =>
+                        typeof page === "number" && setCurrentPage(page)
+                      }
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded"
+                  disabled={currentPage >= totalPages}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                >
+                  <ChevronRight size={18} />
+                </Button>
               </div>
-              <Button
-                variant="ghost" size="icon" className="h-8 w-8"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => p + 1)}
+
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(v) => {
+                  setItemsPerPage(Number(v));
+                  setCurrentPage(1);
+                }}
               >
-                <ChevronRight size={18} />
-              </Button>
+                <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 / page</SelectItem>
+                  <SelectItem value="20">20 / page</SelectItem>
+                  <SelectItem value="50">50 / page</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={`${itemsPerPage}`} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[110px] h-10 bg-white border-gray-200 text-xs font-bold rounded">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10 / page</SelectItem>
-                <SelectItem value="20">20 / page</SelectItem>
-                <SelectItem value="50">50 / page</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          )}
         </div>
       </div>
 

@@ -741,7 +741,7 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        <div className="border border-gray-200 rounded-md p-6 shadow-sm space-y-6 bg-white">
+        <div className="border border-gray-200 rounded-md p-6 space-y-6 bg-white">
           {/* Search + Filter Bar */}
           <div className="flex items-center justify-between">
             <div className="relative w-full max-w-md">
@@ -1398,39 +1398,24 @@ export default function OrdersPage() {
                     return;
                   }
 
-                  // Send messages to each order
-                  let successCount = 0;
-                  let failCount = 0;
-
-                  for (const order of ordersToNotify) {
-                    if (!order) continue;
-
-                    const res = await authenticatedFetch(
-                      `/admin/orders/${order.orderId}/messages`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          recipient: "vendor",
-                          message: customMessage.trim(),
-                        }),
-                      },
-                    );
-                    const result = await parseApiResponse(res);
-
-                    if (result?.success) {
-                      successCount++;
-                    } else {
-                      failCount++;
-                    }
-                  }
-
-                  if (failCount === 0) {
+                  // Send messages to vendors
+                  const orderIds = ordersToNotify.map((o) => o!.orderId);
+                  const res = await authenticatedFetch(`/admin/orders/bulk/messages`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      orderIds,
+                      recipient: "vendor",
+                      message: customMessage.trim(),
+                    }),
+                  });
+                  const result = await parseApiResponse(res);
+                  if (result?.success) {
                     toast.success(
-                      `Message sent to vendor for ${successCount} order${successCount > 1 ? "s" : ""}`,
+                      `Message sent to vendors for ${ordersToNotify.length} order${ordersToNotify.length > 1 ? "s" : ""}`,
                     );
                   } else {
-                    toast.warning(
-                      `Sent to ${successCount} orders, failed for ${failCount}`,
+                    toast.error(
+                      result?.message || "Failed to send message to vendors",
                     );
                   }
 
@@ -1533,39 +1518,24 @@ export default function OrdersPage() {
                     return;
                   }
 
-                  // Send messages to each order
-                  let successCount = 0;
-                  let failCount = 0;
-
-                  for (const order of ordersToNotify) {
-                    if (!order) continue;
-
-                    const res = await authenticatedFetch(
-                      `/admin/orders/${order.orderId}/messages`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          recipient: "customer",
-                          message: customMessage.trim(),
-                        }),
-                      },
-                    );
-                    const result = await parseApiResponse(res);
-
-                    if (result?.success) {
-                      successCount++;
-                    } else {
-                      failCount++;
-                    }
-                  }
-
-                  if (failCount === 0) {
+                  // Send messages to customers
+                  const orderIds = ordersToNotify.map((o) => o!.orderId);
+                  const res = await authenticatedFetch(`/admin/orders/bulk/messages`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      orderIds,
+                      recipient: "customer",
+                      message: customMessage.trim(),
+                    }),
+                  });
+                  const result = await parseApiResponse(res);
+                  if (result?.success) {
                     toast.success(
-                      `Message sent to customer for ${successCount} order${successCount > 1 ? "s" : ""}`,
+                      `Message sent to customers for ${ordersToNotify.length} order${ordersToNotify.length > 1 ? "s" : ""}`,
                     );
                   } else {
-                    toast.warning(
-                      `Sent to ${successCount} orders, failed for ${failCount}`,
+                    toast.error(
+                      result?.message || "Failed to send message to customers",
                     );
                   }
 

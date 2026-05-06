@@ -29,8 +29,8 @@ import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 
 interface KYCDocument {
   id: string;
+  key: string;
   label: string;
-  title?: string;
   shortDescription: string;
   description: string;
   entityType: "vendor" | "business" | "rider";
@@ -71,10 +71,9 @@ export default function KYCDocumentsPage() {
       const result = await parseApiResponse(res);
       if (result?.success) {
         setDocuments(result.data.data);
+        const meta = result.data.meta;
         setTotalPages(
-          result.data.meta.totalPages ||
-            Math.ceil(result.data.meta.total / 10) ||
-            1,
+          meta.totalPages || Math.ceil(meta.total / meta.limit) || 1,
         );
       }
     } catch (error) {
@@ -231,7 +230,7 @@ export default function KYCDocumentsPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-semibold text-slate-900">
             Customer Documents
           </h1>
           <p className="text-slate-500 mt-1">
@@ -293,7 +292,7 @@ export default function KYCDocumentsPage() {
                       key={doc.id}
                       className="hover:bg-slate-50/50 transition-colors"
                     >
-                      <td className="px-6 py-4 font-medium">{doc.label}</td>
+                      <td className="px-6 py-4 font-semibold">{doc.label}</td>
                       <td className="px-6 py-4 text-slate-500 capitalize">
                         {doc.inputType}
                       </td>
@@ -306,7 +305,7 @@ export default function KYCDocumentsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end items-center gap-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                               {doc.isActive ? "Active" : "Inactive"}
                             </span>
                             <Switch
@@ -360,7 +359,7 @@ export default function KYCDocumentsPage() {
                     key={page}
                     variant={currentPage === page ? "default" : "ghost"}
                     className={cn(
-                      "h-8 w-8 text-xs font-medium",
+                      "h-8 w-8 text-xs font-semibold",
                       currentPage === page
                         ? "bg-[#E86B35] text-white hover:bg-[#d45a2a]"
                         : "text-slate-500 hover:bg-slate-100",
@@ -393,7 +392,7 @@ export default function KYCDocumentsPage() {
           />
           <div className="relative bg-white w-full max-w-[620px] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between p-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {isEditMode
                   ? "Edit Document Requirement"
                   : "New Document Requirement"}
@@ -457,7 +456,7 @@ export default function KYCDocumentsPage() {
                   )}
                 />
                 {errors.title && (
-                  <p className="text-xs text-red-500 font-medium">
+                  <p className="text-xs text-red-500 font-semibold">
                     {errors.title}
                   </p>
                 )}
@@ -479,7 +478,7 @@ export default function KYCDocumentsPage() {
                   )}
                 />
                 {errors.shortDescription && (
-                  <p className="text-xs text-red-500 font-medium">
+                  <p className="text-xs text-red-500 font-semibold">
                     {errors.shortDescription}
                   </p>
                 )}
@@ -501,7 +500,7 @@ export default function KYCDocumentsPage() {
                   )}
                 />
                 {errors.description && (
-                  <p className="text-xs text-red-500 font-medium">
+                  <p className="text-xs text-red-500 font-semibold">
                     {errors.description}
                   </p>
                 )}
@@ -509,7 +508,7 @@ export default function KYCDocumentsPage() {
 
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-slate-900">
+                  <p className="text-sm font-semibold text-slate-900">
                     Required Document
                   </p>
                   <p className="text-xs text-slate-500">
@@ -528,14 +527,14 @@ export default function KYCDocumentsPage() {
               <Button
                 variant="outline"
                 onClick={closeModal}
-                className="h-11 px-8 border-slate-300 bg-white font-semibold text-slate-600"
+                className="h-11 px-8 border-slate-300 bg-white font-medium text-slate-600"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={isSaving}
-                className="h-11 px-8 bg-[#E86B35] hover:bg-[#d45a2a] text-white font-semibold min-w-[160px]"
+                className="h-11 px-8 bg-[#E86B35] hover:bg-[#d45a2a] text-white font-medium min-w-[160px]"
               >
                 {isSaving ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

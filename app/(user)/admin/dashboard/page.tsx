@@ -31,22 +31,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <header className="h-[72px] bg-white border-b flex items-center justify-between px-8 z-20">
-        <h1 className="text-xl font-medium text-[#1A1C1E]">Dashboard</h1>
-        <div className="flex items-center gap-5">
-          <Button variant="ghost" size="icon" className="relative h-10 w-10">
-            <Bell size={22} className="text-slate-600" />
-            <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-[#FF3B30] rounded-full border-2 border-white" />
-          </Button>
-          <div className="flex items-center gap-3 pl-5 border-l h-10">
-            <p className="text-sm font-medium text-[#1A1C1E]">James Author</p>
-            <div className="w-10 h-10 rounded-md bg-black text-white flex items-center justify-center text-xs font-bold">
-              JA
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="flex-1 overflow-y-auto p-8 space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Tabs

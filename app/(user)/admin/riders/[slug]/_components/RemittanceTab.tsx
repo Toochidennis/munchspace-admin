@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, Calendar, ChevronLeft, ChevronRight, MoreHorizontal, Loader2 } from "lucide-react";
+import { Search, Calendar, ChevronLeft, ChevronRight, MoreHorizontal, Loader2, Copy, Download, RotateCcw, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface BalanceData {
   balance: number;
@@ -56,6 +63,55 @@ const RANGE_OPTIONS = [
   { label: "This Year", value: "this_year" },
 ];
 
+function CustomModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  maxWidth = "sm:max-w-[640px]",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  maxWidth?: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
+          maxWidth,
+        )}
+      >
+        <div className="flex border-b items-center justify-between px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <button
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RemittanceTab({ riderId }: { riderId: string }) {
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -64,6 +120,8 @@ export default function RemittanceTab({ riderId }: { riderId: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRange, setSelectedRange] = useState("last_30_days");
   const [currentPage, setCurrentPage] = useState(1);
+  const [metadataModalOpen, setMetadataModalOpen] = useState(false);
+  const [metadataContent, setMetadataContent] = useState<any>(null);
 
   const fetchData = useCallback(async () => {
     if (!riderId) return;
@@ -114,12 +172,26 @@ export default function RemittanceTab({ riderId }: { riderId: string }) {
     },
   ];
 
+  const handleViewMetadata = (payout: any) => {
+    setMetadataContent(payout);
+    setMetadataModalOpen(true);
+  };
+
+  const handleCopyMetadata = () => {
+    if (metadataContent) {
+      navigator.clipboard.writeText(JSON.stringify(metadataContent, null, 2));
+      toast.success("Metadata copied to clipboard");
+    }
+  };
+
+  const gridLayout = "grid grid-cols-[160px_1fr_1fr_130px_150px_150px_60px]";
+
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-500">
       {/* Metrics Section */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {metrics.map((item, i) => (
-          <Card key={i} className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white space-y-3">
+          <Card key={i} className="p-6 border border-gray-100 rounded-xl bg-white space-y-3">
             <p className="text-[11px] tracking-wider text-gray-400 font-bold uppercase">{item.label}</p>
             <div className="flex items-center gap-3">
               <p className="text-xl font-bold text-gray-900">{item.value}</p>
@@ -134,7 +206,7 @@ export default function RemittanceTab({ riderId }: { riderId: string }) {
       </div>
 
       {/* History Table */}
-      <Card className="border border-gray-100 shadow-sm rounded-xl bg-white p-6">
+      <Card className="border border-gray-100 rounded-xl bg-white p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h2 className="text-xl font-bold text-gray-900 font-inter">History</h2>
           <div className="flex items-center gap-3">
@@ -168,61 +240,98 @@ export default function RemittanceTab({ riderId }: { riderId: string }) {
           </div>
         </div>
 
-        <div className="overflow-hidden border border-gray-100 rounded-md">
-          <table className="w-full text-sm text-left border-collapse">
-            <thead className="bg-[#F9FAFB] text-gray-900 border-b border-gray-100 font-bold">
-              <tr>
-                <th className="p-4 w-12"><input type="checkbox" className="rounded" /></th>
-                <th className="p-4 border-r border-gray-100">Amount Paid</th>
-                <th className="p-4 border-r border-gray-100">Type</th>
-                <th className="p-4 border-r border-gray-100">Status</th>
-                <th className="p-4 border-r border-gray-100">Payout ID</th>
-                <th className="p-4 border-r border-gray-100">Date</th>
-                <th className="p-4 text-center">-</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="py-20 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
-                      <p className="text-gray-400 font-medium italic">Loading payout history...</p>
+        <div className="space-y-0 border border-gray-100 rounded-md overflow-hidden">
+          <div
+            className={cn(
+              gridLayout,
+              "bg-[#F9FAFB] text-gray-900 border-b border-gray-100 text-sm font-medium",
+            )}
+          >
+            <div className="py-3 pl-4 border-r border-gray-100 flex items-center gap-3">
+              <input type="checkbox" className="rounded" />
+              Amount
+            </div>
+            <div className="py-3 pl-4 border-r border-gray-100 flex items-center">Recipient</div>
+            <div className="py-3 pl-4 border-r border-gray-100 flex items-center">Type</div>
+            <div className="py-3 pl-4 border-r border-gray-100 flex items-center">Status</div>
+            <div className="py-3 pl-4 border-r border-gray-100 flex items-center">Payout ID</div>
+            <div className="py-3 pl-4 border-r border-gray-100 flex items-center">Date</div>
+            <div className="flex justify-center items-center py-3">-</div>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {isLoading ? (
+              <div className="py-20 text-center bg-white border-t border-gray-100">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-[#E86B35]" />
+                  <p className="text-gray-500 font-medium text-sm italic">Loading payout history...</p>
+                </div>
+              </div>
+            ) : !Array.isArray(payouts) || payouts.length === 0 ? (
+              <div className="py-20 text-center text-gray-500 font-medium bg-white border-t border-gray-100 text-sm">
+                No payout history found.
+              </div>
+            ) : (
+              payouts.map((payout, idx) => (
+                <div
+                  key={payout.payoutId}
+                  className={cn(gridLayout, "text-sm items-stretch bg-white transition-colors hover:bg-gray-50/30")}
+                >
+                  <div className="flex items-center gap-3 border-r border-gray-100 py-4 pl-4 font-bold text-gray-900">
+                    <input type="checkbox" className="rounded" />
+                    NGN {payout.amountPaid.toLocaleString()}
+                  </div>
+                  <div className="flex items-center pl-4 border-r border-gray-100">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900">This Rider</span>
+                      <span className="text-[10px] text-gray-500 uppercase">RIDER</span>
                     </div>
-                  </td>
-                </tr>
-              ) : !Array.isArray(payouts) || payouts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-20 text-center text-gray-500 font-medium">
-                    No payout history found.
-                  </td>
-                </tr>
-              ) : (
-                payouts.map((payout, idx) => (
-                  <tr key={payout.payoutId} className="hover:bg-gray-50/30 transition-colors">
-                    <td className="p-4 w-12 border-r border-gray-100"><input type="checkbox" className="rounded" /></td>
-                    <td className="p-4 border-r border-gray-100 text-gray-900 font-bold">NGN {payout.amountPaid.toLocaleString()}</td>
-                    <td className="p-4 border-r border-gray-100 text-gray-500 capitalize">{payout.payoutType}</td>
-                    <td className="p-4 border-r border-gray-100">
-                      <Badge className={cn(
-                        "border-none px-3 py-1 rounded-md text-[10px] font-bold uppercase",
-                        payout.status === "Paid" ? "bg-[#22C55E] text-white" : "bg-[#FDB022] text-white"
-                      )}>
-                        {payout.status}
-                      </Badge>
-                    </td>
-                    <td className="p-4 border-r border-gray-100 text-gray-500">{payout.payoutCode}</td>
-                    <td className="p-4 border-r border-gray-100 text-gray-500">{format(new Date(payout.date), "MMM d, yyyy h:mm a")}</td>
-                    <td className="p-4 text-center">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400">
-                        <MoreHorizontal size={18} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                  </div>
+                  <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 capitalize">
+                    {payout.payoutType}
+                  </div>
+                  <div className="flex items-center border-r border-gray-100 px-4">
+                    <span className={cn(
+                      "px-3 py-1 rounded text-[11px] font-bold whitespace-nowrap w-full text-center uppercase",
+                      payout.status.toLowerCase() === "paid" ? "bg-green-100 text-green-700" : 
+                      payout.status.toLowerCase() === "pending" || payout.status.toLowerCase() === "processing" ? "bg-yellow-100 text-yellow-700" : 
+                      "bg-red-100 text-red-700"
+                    )}>
+                      {payout.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 font-bold">
+                    {payout.payoutCode}
+                  </div>
+                  <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 truncate">
+                    {format(new Date(payout.date), "MMM d, yyyy h:mm a")}
+                  </div>
+                  <div className="flex justify-center items-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal size={18} className="text-gray-400" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-md w-48">
+                        <DropdownMenuItem 
+                          className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                          onClick={() => handleViewMetadata(payout)}
+                        >
+                          <Copy size={16} /> View Metadata
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                        >
+                          <Download size={16} /> Export Receipt
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Pagination */}
@@ -270,6 +379,41 @@ export default function RemittanceTab({ riderId }: { riderId: string }) {
           </div>
         )}
       </Card>
+
+      {/* Metadata Modal */}
+      <CustomModal
+        isOpen={metadataModalOpen}
+        onClose={() => setMetadataModalOpen(false)}
+        title="Payout Metadata"
+        maxWidth="sm:max-w-[680px]"
+        footer={
+          <Button
+            variant="outline"
+            onClick={() => fetchData()}
+          >
+            <RotateCcw size={16} className="mr-2" />
+            Recheck Status
+          </Button>
+        }
+      >
+        <div className="bg-[#111827] rounded-md p-6 relative min-h-[400px] flex flex-col justify-center">
+          {metadataContent ? (
+            <>
+              <button 
+                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
+                onClick={handleCopyMetadata}
+              >
+                <Copy size={20} />
+              </button>
+              <pre className="text-[#9CA3AF] text-sm font-mono overflow-x-auto h-[400px] scrollbar-hide leading-relaxed">
+                {JSON.stringify(metadataContent, null, 2)}
+              </pre>
+            </>
+          ) : (
+            <p className="text-white/50 text-center">Failed to load metadata</p>
+          )}
+        </div>
+      </CustomModal>
     </div>
   );
 }

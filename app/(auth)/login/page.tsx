@@ -459,6 +459,11 @@ export default function SignInPage() {
 
     localStorage.setItem("admin", JSON.stringify(!!data.admin));
     localStorage.setItem("customer", JSON.stringify(!!data.customer));
+    localStorage.setItem("user", JSON.stringify({
+      displayName: data.displayName,
+      firstName: data.firstName,
+      lastName: data.lastName
+    }));
 
     router.push("/admin/dashboard");
   }

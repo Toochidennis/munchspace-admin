@@ -79,7 +79,7 @@ export function NotificationSettings() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <CardHeader className="px-0 flex flex-row items-center justify-between mt-5 mb-12">
         <div>
-          <CardTitle className="text-2xl font-medium text-slate-900">
+          <CardTitle className="text-2xl font-semibold text-slate-900">
             Notification Settings
           </CardTitle>
           <CardDescription className="text-slate-500 mt-1">
@@ -188,7 +188,7 @@ function NotificationAccordion({
         className="w-full flex items-center justify-between px-6 py-3 bg-white hover:bg-slate-50/50 transition-all text-left group"
       >
         <div>
-          <CardTitle className="text-lg font-bold text-slate-900">
+          <CardTitle className="text-lg font-semibold text-slate-900">
             {title}
           </CardTitle>
           <CardDescription className="text-sm mt-1 text-slate-500">
@@ -229,7 +229,7 @@ function NotificationAccordion({
                   <TableCell className="px-6 font-semibold border-r-2 text-slate-700 text-sm w-2/4">
                     {item.label}
                     {item.isCritical && (
-                      <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-bold">CRITICAL</span>
+                      <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-semibold">CRITICAL</span>
                     )}
                   </TableCell>
                   {channels.map((channel) => {
