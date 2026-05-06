@@ -53,7 +53,7 @@ function CustomModal({
   title,
   children,
   footer,
-  maxWidth = "max-w-[580px]",
+  maxWidth = "sm:max-w-[640px]",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -63,30 +63,31 @@ function CustomModal({
   maxWidth?: string;
 }) {
   if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
+        className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative w-full bg-white shadow-2xl overflow-hidden rounded-xl animate-in zoom-in-95 duration-200",
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
           maxWidth,
         )}
       >
-        <div className="flex border-b items-center justify-between px-6 py-4 bg-slate-50">
-          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+        <div className="flex border-b items-center justify-between px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <button
-            className="text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
             onClick={onClose}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
+        <div className="p-6">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-slate-50">
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
             {footer}
           </div>
         )}
@@ -307,7 +308,7 @@ export function ServiceChargePayment() {
   return (
     <div className="mx-auto relative space-y-6">
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-bold text-slate-900">
+        <h2 className="text-2xl font-semibold text-slate-900">
           Commission & Payout Management
         </h2>
         <p className="text-slate-500 text-[15px]">
@@ -323,7 +324,7 @@ export function ServiceChargePayment() {
             setCurrentPage(1);
           }}
           className={cn(
-            "pb-4 text-[15px] font-medium transition-all relative",
+            "pb-4 text-[15px] font-semibold transition-all relative",
             activeSubTab === "BUSINESS"
               ? "text-munchprimary"
               : "text-slate-500 hover:text-slate-700",
@@ -340,7 +341,7 @@ export function ServiceChargePayment() {
             setCurrentPage(1);
           }}
           className={cn(
-            "pb-4 text-[15px] font-medium transition-all relative",
+            "pb-4 text-[15px] font-semibold transition-all relative",
             activeSubTab === "RIDER"
               ? "text-munchprimary"
               : "text-slate-500 hover:text-slate-700",
@@ -355,14 +356,14 @@ export function ServiceChargePayment() {
 
       <Card className="border border-slate-200 shadow-sm rounded-xl overflow-hidden bg-white">
         <div className="flex items-center justify-between p-6">
-          <h3 className="text-lg font-bold text-slate-800">
+          <h3 className="text-lg font-semibold text-slate-800">
             {activeSubTab === "BUSINESS"
               ? "Vendor Platform Commission"
               : "Delivery Agent Platform Commission"}
           </h3>
           <Button
             onClick={() => openEditModal()}
-            className="bg-munchprimary hover:bg-munchprimaryDark text-white gap-2 h-11 px-6 rounded-lg font-bold transition-colors"
+            className="bg-munchprimary hover:bg-munchprimaryDark text-white gap-2 h-11 px-6 rounded-lg font-semibold transition-colors"
           >
             <Plus size={20} />
             Add New
@@ -378,22 +379,22 @@ export function ServiceChargePayment() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="h-16 px-6 text-[13px] font-bold text-slate-900">
+                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900">
                     {activeSubTab === "BUSINESS" ? "Vendors" : "Riders"}
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-bold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
                     Type
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-bold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
                     Value
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-bold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
                     Payout Schedule
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-bold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
                     Last Updated
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-center border-l border-slate-100 text-slate-900 font-bold">
+                  <TableHead className="h-16 px-6 text-center border-l border-slate-100 text-slate-900 font-semibold">
                     -
                   </TableHead>
                 </TableRow>
@@ -405,7 +406,7 @@ export function ServiceChargePayment() {
                       key={item.ownerId}
                       className="hover:bg-slate-50/30 transition-colors border-b border-slate-100 last:border-0"
                     >
-                      <TableCell className="py-6 px-6 text-[14px] text-slate-700 font-medium">
+                      <TableCell className="py-6 px-6 text-[14px] text-slate-700 font-semibold">
                         {activeSubTab === "BUSINESS"
                           ? "All Vendors"
                           : "All Riders"}
@@ -462,7 +463,7 @@ export function ServiceChargePayment() {
                   <TableRow>
                     <TableCell
                       colSpan={6}
-                      className="text-center py-20 text-slate-400 font-medium"
+                      className="text-center py-20 text-slate-400 font-semibold"
                     >
                       No payout assignments found.
                     </TableCell>
@@ -476,7 +477,7 @@ export function ServiceChargePayment() {
         <div className="flex items-center justify-center gap-6 py-8 border-t border-slate-100 bg-white">
           <p className="text-slate-400 text-sm">
             Total{" "}
-            <span className="text-slate-900 font-medium">
+            <span className="text-slate-900 font-semibold">
               {totalItems} items
             </span>
           </p>
@@ -502,7 +503,7 @@ export function ServiceChargePayment() {
                   variant="ghost"
                   onClick={() => setCurrentPage(page)}
                   className={cn(
-                    "h-9 min-w-[36px] px-1 rounded text-sm font-bold transition-all",
+                    "h-9 min-w-[36px] px-1 rounded text-sm font-semibold transition-all",
                     currentPage === page
                       ? "border border-munchprimary text-munchprimary bg-white shadow-sm"
                       : "text-slate-500 hover:text-slate-700",
@@ -519,7 +520,7 @@ export function ServiceChargePayment() {
                   variant="ghost"
                   onClick={() => setCurrentPage(totalPages)}
                   className={cn(
-                    "h-9 min-w-[36px] px-1 rounded text-sm font-bold",
+                    "h-9 min-w-[36px] px-1 rounded text-sm font-semibold",
                     currentPage === totalPages
                       ? "border border-munchprimary text-munchprimary bg-white shadow-sm"
                       : "text-slate-500",
@@ -548,7 +549,7 @@ export function ServiceChargePayment() {
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-[120px] h-10 bg-white border-slate-200 text-slate-600 text-xs font-bold focus:ring-0 rounded-lg shadow-sm">
+            <SelectTrigger className="w-[120px] h-10 bg-white border-slate-200 text-slate-600 text-xs font-semibold focus:ring-0 rounded-lg shadow-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -582,7 +583,7 @@ export function ServiceChargePayment() {
             <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-8 h-12 bg-munchprimary hover:bg-munchprimaryDark text-white font-semibold rounded-lg min-w-[140px]"
+              className="px-8 h-12 bg-munchprimary hover:bg-munchprimaryDark text-white font-medium rounded-lg min-w-[140px]"
             >
               {isSaving ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -596,11 +597,24 @@ export function ServiceChargePayment() {
         <div className="space-y-6">
           <div className="flex gap-2">
             <button
-              onClick={() =>
-                setFormValues({ ...formValues, commissionType: "percentage" })
-              }
+              onClick={() => {
+                setFormValues({ ...formValues, commissionType: "percentage" });
+                // Re-validate if there was an error
+                if (errors.commission) {
+                  const val = parseFloat(formValues.commission);
+                  if (formValues.commission && val <= 100) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.commission;
+                      return newErrors;
+                    });
+                  } else if (formValues.commission && val > 100) {
+                    setErrors(prev => ({ ...prev, commission: "Percentage cannot be more than 100" }));
+                  }
+                }
+              }}
               className={cn(
-                "px-6 py-2.5 rounded-lg text-sm font-bold transition-all border",
+                "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all border",
                 formValues.commissionType === "percentage"
                   ? "bg-slate-900 text-white border-slate-900 shadow-md"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
@@ -609,11 +623,21 @@ export function ServiceChargePayment() {
               Percentage (%)
             </button>
             <button
-              onClick={() =>
-                setFormValues({ ...formValues, commissionType: "flat" })
-              }
+              onClick={() => {
+                setFormValues({ ...formValues, commissionType: "flat" });
+                // Re-validate if there was an error
+                if (errors.commission) {
+                   if (formValues.commission) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.commission;
+                      return newErrors;
+                    });
+                  }
+                }
+              }}
               className={cn(
-                "px-6 py-2.5 rounded-lg text-sm font-bold transition-all border",
+                "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all border",
                 formValues.commissionType === "flat"
                   ? "bg-slate-900 text-white border-slate-900 shadow-md"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
@@ -628,34 +652,54 @@ export function ServiceChargePayment() {
               Value <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">
                 {formValues.commissionType === "percentage" ? "" : "N"}
               </span>
               <Input
-                type="number"
+                type="text"
                 value={formValues.commission}
-                onChange={(e) =>
-                  setFormValues({ ...formValues, commission: e.target.value })
-                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Only allow digits and at most one decimal point
+                  if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                    setFormValues({ ...formValues, commission: val });
+                    
+                    // Real-time validation
+                    if (val) {
+                      const numVal = parseFloat(val);
+                      if (formValues.commissionType === "percentage" && numVal > 100) {
+                        setErrors(prev => ({ ...prev, commission: "Percentage cannot be more than 100" }));
+                      } else {
+                        setErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.commission;
+                          return newErrors;
+                        });
+                      }
+                    } else {
+                      setErrors(prev => ({ ...prev, commission: "Please enter a commission value" }));
+                    }
+                  }
+                }}
                 placeholder={
                   formValues.commissionType === "percentage"
                     ? "e.g. 15"
                     : "e.g. 1200.00"
                 }
                 className={cn(
-                  "h-12 bg-white border-slate-200 focus:ring-munchprimary rounded-lg text-base font-medium",
+                  "h-12 bg-white border-slate-200 focus:ring-munchprimary rounded-lg text-base font-semibold",
                   formValues.commissionType === "flat" ? "pl-8" : "pl-4",
                   errors.commission && "border-red-500 focus:ring-red-500",
                 )}
               />
               {formValues.commissionType === "percentage" && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">
                   %
                 </span>
               )}
             </div>
             {errors.commission && (
-              <p className="text-red-500 text-xs font-medium">{errors.commission}</p>
+              <p className="text-red-500 text-xs font-semibold">{errors.commission}</p>
             )}
           </div>
 
@@ -666,10 +710,19 @@ export function ServiceChargePayment() {
             </Label>
             <Select 
               value={formValues.ownerId} 
-              onValueChange={(val) => setFormValues({ ...formValues, ownerId: val })}
+              onValueChange={(val) => {
+                setFormValues({ ...formValues, ownerId: val });
+                if (val) {
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.ownerId;
+                    return newErrors;
+                  });
+                }
+              }}
             >
               <SelectTrigger className={cn(
-                "h-12 w-full border-slate-200 rounded-lg text-slate-500 bg-white",
+                "h-12! w-full border-slate-200 rounded-lg text-slate-500 bg-white",
                 errors.ownerId && "border-red-500",
               )}>
                 <SelectValue placeholder={`Select ${activeSubTab === "BUSINESS" ? "vendor" : "rider"}`} />
@@ -681,7 +734,7 @@ export function ServiceChargePayment() {
               </SelectContent>
             </Select>
             {errors.ownerId && (
-              <p className="text-red-500 text-xs font-medium">{errors.ownerId}</p>
+              <p className="text-red-500 text-xs font-semibold">{errors.ownerId}</p>
             )}
           </div>
 
@@ -699,7 +752,7 @@ export function ServiceChargePayment() {
                   setFormValues({ ...formValues, schedule: "weekly" })
                 }
                 className={cn(
-                  "px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+                  "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
                   formValues.schedule === "weekly"
                     ? "bg-slate-900 text-white shadow-md"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100",
@@ -712,7 +765,7 @@ export function ServiceChargePayment() {
                   setFormValues({ ...formValues, schedule: "monthly" })
                 }
                 className={cn(
-                  "px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+                  "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
                   formValues.schedule === "monthly"
                     ? "bg-slate-900 text-white shadow-md"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100",
@@ -750,7 +803,7 @@ export function ServiceChargePayment() {
                 }
               }}
             >
-              <SelectTrigger className="h-12 w-full border-slate-200 rounded-lg text-slate-700 font-medium">
+              <SelectTrigger className="h-12! w-full border-slate-200 rounded-lg text-slate-700 font-semibold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[110]">
@@ -785,7 +838,7 @@ export function ServiceChargePayment() {
             />
             <Label
               htmlFor="notify"
-              className="text-[15px] font-bold text-slate-700 cursor-pointer"
+              className="text-[15px] font-semibold text-slate-700 cursor-pointer"
             >
               Notify the {activeSubTab === "BUSINESS" ? "vendors" : "riders"} via email about this update.
             </Label>
@@ -811,7 +864,7 @@ export function ServiceChargePayment() {
             <Button
               onClick={confirmDelete}
               disabled={isDeleting}
-              className="px-8 h-12 bg-munchprimary hover:bg-munchprimaryDark text-white font-semibold rounded-lg min-w-[140px]"
+              className="px-8 h-12 bg-munchprimary hover:bg-munchprimaryDark text-white font-medium rounded-lg min-w-[140px]"
             >
               {isDeleting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />

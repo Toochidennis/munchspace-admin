@@ -309,7 +309,7 @@ export function TeamManagement() {
     <Card className="border-none shadow-none bg-transparent">
       <CardHeader className="px-0 flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="text-2xl font-medium">Team Management</CardTitle>
+          <CardTitle className="text-2xl font-semibold">Team Management</CardTitle>
           <CardDescription>
             Add, remove or update team members roles.
           </CardDescription>
@@ -353,19 +353,19 @@ export function TeamManagement() {
             <Table>
             <TableHeader className="bg-gray-50/50">
               <TableRow>
-                <TableHead className="text-xs font-bold py-4">
+                <TableHead className="text-xs font-semibold py-4">
                   Role
                 </TableHead>
-                <TableHead className="text-xs font-bold py-4">
+                <TableHead className="text-xs font-semibold py-4">
                   Email Address
                 </TableHead>
-                <TableHead className="text-xs font-bold py-4">
+                <TableHead className="text-xs font-semibold py-4">
                   Name
                 </TableHead>
-                <TableHead className="text-xs font-bold py-4">
+                <TableHead className="text-xs font-semibold py-4">
                   Last Logged In
                 </TableHead>
-                <TableHead className="w-16 text-center text-xs font-bold py-4">
+                <TableHead className="w-16 text-center text-xs font-semibold py-4">
                   -
                 </TableHead>
               </TableRow>
@@ -376,7 +376,7 @@ export function TeamManagement() {
                   <TableCell>
                     <span
                       className={cn(
-                        "px-3 py-1 rounded text-[10px] font-bold text-white",
+                        "px-3 py-1 rounded text-[10px] font-semibold text-white",
                         m.role === "Admin"
                           ? "bg-purple-900"
                           : m.role === "Vendor Manager"
@@ -390,7 +390,7 @@ export function TeamManagement() {
                   <TableCell className="text-gray-600 text-sm">
                     {m.workEmail}
                   </TableCell>
-                  <TableCell className="text-gray-900 font-medium text-sm">
+                  <TableCell className="text-gray-900 font-semibold text-sm">
                     {m.firstName} {m.lastName}
                   </TableCell>
                   <TableCell className="text-gray-500 text-sm">
@@ -430,7 +430,7 @@ export function TeamManagement() {
         <div className="flex items-center justify-center gap-6 text-sm border-t pt-6">
           <p className="text-gray-500">
             Total{" "}
-            <span className="text-gray-900 font-medium">
+            <span className="text-gray-900 font-semibold">
               {filteredMembers.length} items
             </span>
           </p>
@@ -451,7 +451,7 @@ export function TeamManagement() {
                   variant={currentPage === page ? "default" : "ghost"}
                   size="sm"
                   className={cn(
-                    "h-8 w-8 rounded font-medium",
+                    "h-8 w-8 rounded font-semibold",
                     currentPage === page
                       ? "bg-orange-500 text-white hover:bg-orange-600"
                       : "text-gray-500",
@@ -481,7 +481,7 @@ export function TeamManagement() {
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
+            <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-semibold rounded">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -521,7 +521,7 @@ export function TeamManagement() {
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
+              <Label className="text-xs font-semibold">
                 First name <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -531,21 +531,28 @@ export function TeamManagement() {
                 )}
                 placeholder="Input text"
                 value={newMemberData.firstName}
-                onChange={(e) =>
+                onChange={(e) => {
                   setNewMemberData({
                     ...newMemberData,
                     firstName: e.target.value,
-                  })
-                }
+                  });
+                  if (errors.firstName && e.target.value) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.firstName;
+                      return newErrors;
+                    });
+                  }
+                }}
               />
               {errors.firstName && (
-                <p className="text-[10px] text-red-500 font-bold">
+                <p className="text-[10px] text-red-500 font-semibold">
                   {errors.firstName}
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
+              <Label className="text-xs font-semibold">
                 Last name <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -555,15 +562,22 @@ export function TeamManagement() {
                 )}
                 placeholder="Input text"
                 value={newMemberData.lastName}
-                onChange={(e) =>
+                onChange={(e) => {
                   setNewMemberData({
                     ...newMemberData,
                     lastName: e.target.value,
-                  })
-                }
+                  });
+                  if (errors.lastName && e.target.value) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.lastName;
+                      return newErrors;
+                    });
+                  }
+                }}
               />
               {errors.lastName && (
-                <p className="text-[10px] text-red-500 font-bold">
+                <p className="text-[10px] text-red-500 font-semibold">
                   {errors.lastName}
                 </p>
               )}
@@ -571,7 +585,7 @@ export function TeamManagement() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
+              <Label className="text-xs font-semibold">
                 Work email <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -581,21 +595,28 @@ export function TeamManagement() {
                 )}
                 placeholder="Input text"
                 value={newMemberData.workEmail}
-                onChange={(e) =>
+                onChange={(e) => {
                   setNewMemberData({
                     ...newMemberData,
                     workEmail: e.target.value,
-                  })
-                }
+                  });
+                  if (errors.workEmail && e.target.value) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.workEmail;
+                      return newErrors;
+                    });
+                  }
+                }}
               />
               {errors.workEmail && (
-                <p className="text-[10px] text-red-500 font-bold">
+                <p className="text-[10px] text-red-500 font-semibold">
                   {errors.workEmail}
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Personal email</Label>
+              <Label className="text-xs font-semibold">Personal email</Label>
               <Input
                 className="rounded h-12"
                 placeholder="Input text"
@@ -611,7 +632,7 @@ export function TeamManagement() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Phone number</Label>
+              <Label className="text-xs font-semibold">Phone number</Label>
               <div className="flex gap-2">
                 <div className="flex items-center px-3 bg-gray-50 border rounded text-sm text-gray-500 h-12">
                   +234
@@ -620,23 +641,33 @@ export function TeamManagement() {
                   className="rounded flex-1 h-12"
                   placeholder="080"
                   value={newMemberData.phone}
-                  onChange={(e) =>
-                    setNewMemberData({
-                      ...newMemberData,
-                      phone: e.target.value,
-                    })
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^\d+$/.test(val)) {
+                      setNewMemberData({
+                        ...newMemberData,
+                        phone: val,
+                      });
+                    }
+                  }}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">
+              <Label className="text-xs font-semibold">
                 Role <span className="text-red-500">*</span>
               </Label>
               <Select
-                onValueChange={(v) =>
-                  setNewMemberData({ ...newMemberData, role: v })
-                }
+                onValueChange={(v) => {
+                  setNewMemberData({ ...newMemberData, role: v });
+                  if (errors.role && v) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.role;
+                      return newErrors;
+                    });
+                  }
+                }}
               >
                 <SelectTrigger
                   className={cn(
@@ -653,7 +684,7 @@ export function TeamManagement() {
                 </SelectContent>
               </Select>
               {errors.role && (
-                <p className="text-[10px] text-red-500 font-bold">
+                <p className="text-[10px] text-red-500 font-semibold">
                   {errors.role}
                 </p>
               )}
@@ -662,7 +693,7 @@ export function TeamManagement() {
           {showInfo && (
             <div className="bg-blue-50 p-4 rounded flex gap-3 border border-blue-100 relative">
               <div className="h-5 w-5 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-white text-[10px] font-bold">i</span>
+                <span className="text-white text-[10px] font-semibold">i</span>
               </div>
               <p className="text-[13px] text-blue-800 pr-6 leading-relaxed">
                 Once the member is added, they will receive an email invitation
@@ -705,7 +736,7 @@ export function TeamManagement() {
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">
+                <Label className="text-xs font-semibold">
                   First name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -719,13 +750,13 @@ export function TeamManagement() {
                   }
                 />
                 {errors.firstName && (
-                  <p className="text-[10px] text-red-500 font-bold">
+                  <p className="text-[10px] text-red-500 font-semibold">
                     {errors.firstName}
                   </p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">
+                <Label className="text-xs font-semibold">
                   Last name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -739,7 +770,7 @@ export function TeamManagement() {
                   }
                 />
                 {errors.lastName && (
-                  <p className="text-[10px] text-red-500 font-bold">
+                  <p className="text-[10px] text-red-500 font-semibold">
                     {errors.lastName}
                   </p>
                 )}
@@ -747,7 +778,7 @@ export function TeamManagement() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">
+                <Label className="text-xs font-semibold">
                   Work email <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -761,13 +792,13 @@ export function TeamManagement() {
                   }
                 />
                 {errors.workEmail && (
-                  <p className="text-[10px] text-red-500 font-bold">
+                  <p className="text-[10px] text-red-500 font-semibold">
                     {errors.workEmail}
                   </p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Personal email</Label>
+                <Label className="text-xs font-semibold">Personal email</Label>
                 <Input
                   className="rounded h-12"
                   value={editMember.personalEmail}
@@ -782,7 +813,7 @@ export function TeamManagement() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Phone number</Label>
+                <Label className="text-xs font-semibold">Phone number</Label>
                 <div className="flex gap-2">
                   <div className="flex items-center px-3 bg-gray-50 border rounded text-sm text-gray-500 h-12">
                     +234
@@ -797,7 +828,7 @@ export function TeamManagement() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">
+                <Label className="text-xs font-semibold">
                   Role <span className="text-red-500">*</span>
                 </Label>
                 <Select
@@ -823,7 +854,7 @@ export function TeamManagement() {
                   </SelectContent>
                 </Select>
                 {errors.role && (
-                  <p className="text-[10px] text-red-500 font-bold">
+                  <p className="text-[10px] text-red-500 font-semibold">
                     {errors.role}
                   </p>
                 )}
@@ -837,7 +868,7 @@ export function TeamManagement() {
               />
               <Label
                 htmlFor="notify-edit"
-                className="text-sm font-medium text-gray-900"
+                className="text-sm font-semibold text-gray-900"
               >
                 Notify the member via email about this change.
               </Label>
@@ -879,7 +910,7 @@ export function TeamManagement() {
             <div className="space-y-3">
               <p className="text-gray-700">
                 Are you sure you want to remove{" "}
-                <span className="font-bold text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {deleteMember.firstName} {deleteMember.lastName}?
                 </span>
               </p>
@@ -898,7 +929,7 @@ export function TeamManagement() {
               />
               <Label
                 htmlFor="notify-del"
-                className="text-sm font-bold text-gray-900"
+                className="text-sm font-semibold text-gray-900"
               >
                 Send an email notifying them that their access has been revoked.
               </Label>

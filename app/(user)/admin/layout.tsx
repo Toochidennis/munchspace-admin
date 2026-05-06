@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 
@@ -25,6 +26,17 @@ function getAccessToken(): string | null {
   }
 }
 
+const routeTitles: Record<string, string> = {
+  "/admin/dashboard": "Dashboard",
+  "/admin/orders": "Orders",
+  "/admin/vendors": "Vendors",
+  "/admin/riders": "Riders",
+  "/admin/customers": "Customers",
+  "/admin/payments": "Payments",
+  "/admin/payouts": "Payouts",
+  "/admin/settings": "Settings",
+};
+
 export default function DashboardLayout({
   children,
 }: {
@@ -44,6 +56,29 @@ export default function DashboardLayout({
     }
   }, [router, pathname]);
 
+  const getPageTitle = () => {
+    // Exact match
+    if (routeTitles[pathname]) return routeTitles[pathname];
+    
+    // Dynamic match (e.g. /admin/orders/[slug])
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length >= 2) {
+      const base = `/${segments[0]}/${segments[1]}`;
+      if (routeTitles[base]) {
+        // If it's a detail page, maybe return "Order Details" etc
+        const detailMap: Record<string, string> = {
+          "/admin/orders": "Order Details",
+          "/admin/vendors": "Vendor Details",
+          "/admin/riders": "Rider Details",
+          "/admin/customers": "Customer Details",
+        };
+        return detailMap[base] || routeTitles[base];
+      }
+    }
+    
+    return "Munchspace Admin";
+  };
+
   if (isChecking) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#FAFBFC]">
@@ -59,7 +94,10 @@ export default function DashboardLayout({
     <div className="flex h-screen w-full overflow-hidden bg-[#FAFBFC]">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {children}
+        <Header title={getPageTitle()} />
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
       </div>
     </div>
   );

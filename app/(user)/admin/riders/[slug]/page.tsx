@@ -267,7 +267,7 @@ export default function RiderDetailsPage() {
             </div>
             <div>
               <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-semibold text-gray-900">
                   {profile.fullName}
                 </h1>
                 <Badge className={cn(
@@ -332,22 +332,19 @@ export default function RiderDetailsPage() {
         </div>
 
         {/* Tabs Navigation */}
-        <div className="flex items-center gap-8 border-b border-gray-100 mb-8 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-6 border-b border-gray-100 mb-8 overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                "pb-3 text-sm font-bold transition-all relative whitespace-nowrap",
+                "pb-3 text-sm font-medium transition-all relative whitespace-nowrap",
                 activeTab === tab
-                  ? "text-[#E86B35]"
-                  : "text-gray-400 hover:text-gray-600",
+                  ? "text-[#E86B35] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#E86B35]"
+                  : "text-gray-500 hover:text-gray-700",
               )}
             >
               {tab}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#E86B35]" />
-              )}
             </button>
           ))}
         </div>

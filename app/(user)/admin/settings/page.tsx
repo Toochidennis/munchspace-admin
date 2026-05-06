@@ -15,15 +15,13 @@ import { LegalPrivacy } from "./_components/legal-privacy";
 import { ProductCategories } from "./_components/product-categories";
 import { PaymentMethod } from "./_components/payment-method";
 import KYCDocumentsPage from "./_components/kyc-documents";
-import Header from "@/components/layout/Header";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = React.useState("platform");
   const [activeSubTab, setActiveSubTab] = React.useState("paymentMethod");
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <Header title="Settings" />
+    <div className="flex flex-col h-full">
       {/* SCROLLABLE CONTENT */}
       <main className="flex-1 overflow-y-auto space-y-8 scroll-smooth">
         <Tabs

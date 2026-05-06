@@ -227,7 +227,7 @@ export function DeliveryShipping() {
     <div className="space-y-6 max-w-6xl mx-auto py-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
+          <CardTitle className="text-2xl font-semibold text-gray-900">
             Delivery & Shipping
           </CardTitle>
           <CardDescription className="text-gray-500 mt-2 max-w-xl">
@@ -237,7 +237,7 @@ export function DeliveryShipping() {
         </div>
         <Button
           onClick={() => handleOpenModal()}
-          className="bg-[#E86B35] hover:bg-[#d15d2c] text-white px-6 h-11 rounded-md font-bold gap-2"
+          className="bg-[#E86B35] hover:bg-[#d15d2c] text-white px-6 h-11 rounded-md font-semibold gap-2"
         >
           <Plus size={20} /> New
         </Button>
@@ -256,7 +256,7 @@ export function DeliveryShipping() {
                 className="border border-gray-200 shadow-sm rounded-xl overflow-hidden bg-white"
               >
                 <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-gray-900">
+                  <h3 className="text-xl font-semibold text-gray-900">
                     {zone.state.name}
                   </h3>
                   <div className="flex items-center gap-3">
@@ -267,7 +267,7 @@ export function DeliveryShipping() {
                       }
                       className="data-[state=checked]:bg-[#E86B35]"
                     />
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-semibold text-gray-500">
                       Enabled
                     </span>
                   </div>
@@ -278,32 +278,32 @@ export function DeliveryShipping() {
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent border-b border-gray-100">
-                          <TableHead className="font-bold text-gray-900 h-14 px-6 bg-gray-50/50">
+                          <TableHead className="font-semibold text-gray-900 h-14 px-6 bg-gray-50/50">
                             Base Fee
                           </TableHead>
-                          <TableHead className="font-bold text-gray-900 h-14 px-6 bg-gray-50/50 border-l border-gray-100">
+                          <TableHead className="font-semibold text-gray-900 h-14 px-6 bg-gray-50/50 border-l border-gray-100">
                             Fee per KM
                           </TableHead>
-                          <TableHead className="font-bold text-gray-900 h-14 px-6 bg-gray-50/50 border-l border-gray-100">
+                          <TableHead className="font-semibold text-gray-900 h-14 px-6 bg-gray-50/50 border-l border-gray-100">
                             Minimum Fee
                           </TableHead>
-                          <TableHead className="font-bold text-gray-900 h-14 px-6 bg-gray-50/50 border-l border-gray-100">
+                          <TableHead className="font-semibold text-gray-900 h-14 px-6 bg-gray-50/50 border-l border-gray-100">
                             Maximum Fee
                           </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <TableRow className="hover:bg-transparent border-none">
-                          <TableCell className="h-16 px-6 text-[15px] font-medium text-gray-700 bg-white">
+                          <TableCell className="h-16 px-6 text-[15px] font-semibold text-gray-700 bg-white">
                             {formatCurrency(zone.baseFee)}
                           </TableCell>
-                          <TableCell className="h-16 px-6 text-[15px] font-medium text-gray-700 bg-white border-l border-gray-100">
+                          <TableCell className="h-16 px-6 text-[15px] font-semibold text-gray-700 bg-white border-l border-gray-100">
                             {formatCurrency(zone.feePerKm)}
                           </TableCell>
-                          <TableCell className="h-16 px-6 text-[15px] font-medium text-gray-700 bg-white border-l border-gray-100">
+                          <TableCell className="h-16 px-6 text-[15px] font-semibold text-gray-700 bg-white border-l border-gray-100">
                             {formatCurrency(zone.minFee)}
                           </TableCell>
-                          <TableCell className="h-16 px-6 text-[15px] font-medium text-gray-700 bg-white border-l border-gray-100">
+                          <TableCell className="h-16 px-6 text-[15px] font-semibold text-gray-700 bg-white border-l border-gray-100">
                             {formatCurrency(zone.maxFee)}
                           </TableCell>
                         </TableRow>
@@ -312,10 +312,10 @@ export function DeliveryShipping() {
                   </div>
 
                   <div className="mt-6 space-y-3">
-                    <h4 className="text-[14px] font-medium text-gray-400">
+                    <h4 className="text-[14px] font-semibold text-gray-400">
                       Estimated Delivery Cost (Preview):
                     </h4>
-                    <div className="space-y-2 text-[14px] font-bold text-gray-900">
+                    <div className="space-y-2 text-[14px] font-semibold text-gray-900">
                       <p>
                         2 km <span className="mx-2 text-gray-400">→</span>{" "}
                         {formatCurrency(
@@ -359,7 +359,7 @@ export function DeliveryShipping() {
                     <Button
                       onClick={() => handleOpenModal(zone)}
                       variant="outline"
-                      className="h-10 border-gray-200 text-gray-600 font-bold gap-2 px-5 rounded-md hover:bg-gray-50"
+                      className="h-10 border-gray-200 text-gray-600 font-semibold gap-2 px-5 rounded-md hover:bg-gray-50"
                     >
                       Edit <Edit2 size={16} />
                     </Button>
@@ -383,14 +383,14 @@ export function DeliveryShipping() {
             <Button
               variant="outline"
               onClick={() => setIsModalOpen(false)}
-              className="px-8 h-11 border-gray-200 text-gray-600 font-bold rounded-md hover:bg-gray-50"
+              className="px-8 h-11 border-gray-200 text-gray-600 font-semibold rounded-md hover:bg-gray-50"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-8 h-11 bg-[#E86B35] hover:bg-[#d15d2c] text-white font-bold rounded-md min-w-[100px]"
+              className="px-8 h-11 bg-[#E86B35] hover:bg-[#d15d2c] text-white font-medium rounded-md min-w-[100px]"
             >
               {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save"}
             </Button>
@@ -399,7 +399,7 @@ export function DeliveryShipping() {
       >
         <div className="space-y-6">
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-500">
+            <Label className="text-sm font-semibold text-gray-500">
               Delivery State <span className="text-red-500">*</span>
             </Label>
             <Select
@@ -409,7 +409,7 @@ export function DeliveryShipping() {
               }
               disabled={modalMode === "edit"}
             >
-              <SelectTrigger className="h-12 border-gray-200 focus:ring-0 focus:ring-offset-0">
+              <SelectTrigger className="h-12! border-gray-200 focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select state" />
               </SelectTrigger>
               <SelectContent>
@@ -424,7 +424,7 @@ export function DeliveryShipping() {
 
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-400 whitespace-nowrap">
+              <span className="text-sm font-semibold text-gray-400 whitespace-nowrap">
                 Delivery Pricing
               </span>
               <div className="h-px bg-gray-100 w-full" />
@@ -432,85 +432,97 @@ export function DeliveryShipping() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-500">
+                <Label className="text-sm font-semibold text-gray-500">
                   Base Fee <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-medium">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-semibold">
                     ₦
                   </span>
                   <Input
-                    type="number"
+                    type="text"
                     value={formData.baseFee}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        baseFee: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          baseFee: val,
+                        }));
+                      }
+                    }}
                     className="pl-8 h-12 border-gray-200 focus-visible:ring-0"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-500">
+                <Label className="text-sm font-semibold text-gray-500">
                   Fee per km <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-medium">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-semibold">
                     ₦
                   </span>
                   <Input
-                    type="number"
+                    type="text"
                     value={formData.feePerKm}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        feePerKm: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          feePerKm: val,
+                        }));
+                      }
+                    }}
                     className="pl-8 h-12 border-gray-200 focus-visible:ring-0"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-500">
+                <Label className="text-sm font-semibold text-gray-500">
                   Minimum fee <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-medium">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-semibold">
                     ₦
                   </span>
                   <Input
-                    type="number"
+                    type="text"
                     value={formData.minFee}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        minFee: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          minFee: val,
+                        }));
+                      }
+                    }}
                     className="pl-8 h-12 border-gray-200 focus-visible:ring-0"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-500">
+                <Label className="text-sm font-semibold text-gray-500">
                   Maximum fee <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-medium">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-900 font-semibold">
                     ₦
                   </span>
                   <Input
-                    type="number"
+                    type="text"
                     value={formData.maxFee}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        maxFee: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          maxFee: val,
+                        }));
+                      }
+                    }}
                     className="pl-8 h-12 border-gray-200 focus-visible:ring-0"
                   />
                 </div>
@@ -519,10 +531,10 @@ export function DeliveryShipping() {
           </div>
 
           <div className="p-4 bg-gray-50/50 rounded-lg space-y-3">
-            <h4 className="text-[14px] font-medium text-gray-400">
+            <h4 className="text-[14px] font-semibold text-gray-400">
               Estimated Delivery Cost (Preview):
             </h4>
-            <div className="space-y-2 text-[14px] font-bold text-gray-900">
+            <div className="space-y-2 text-[14px] font-semibold text-gray-900">
               <p>
                 2 km <span className="mx-2 text-gray-400">→</span>{" "}
                 {formatCurrency(
@@ -592,12 +604,12 @@ function CustomModal({
       />
       <div
         className={cn(
-          "relative w-full bg-white shadow-xl overflow-hidden rounded-xl animate-in zoom-in-95 duration-200",
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
           maxWidth,
         )}
       >
         <div className="flex border-b items-center justify-between px-6 py-4">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <button
             className="text-gray-400 hover:text-gray-600 transition-colors"
             onClick={onClose}

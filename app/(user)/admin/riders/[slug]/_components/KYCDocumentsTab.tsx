@@ -141,7 +141,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Vehicle Information */}
-      <Card className="p-6 border border-gray-100 shadow-sm rounded-xl bg-white">
+      <Card className="p-6 border border-gray-100 rounded-xl bg-white">
         <h3 className="text-lg font-bold text-gray-900 mb-6">
           Vehicle Information
         </h3>

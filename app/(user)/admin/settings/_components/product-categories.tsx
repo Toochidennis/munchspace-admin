@@ -235,7 +235,7 @@ export function ProductCategories() {
       {/* Header */}
       <div className="flex items-start justify-between mt-5">
         <div className="px-0 pt-0">
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-semibold text-slate-900">
             Product Categories
           </h1>
           <p className="text-slate-500 mt-1">
@@ -245,7 +245,7 @@ export function ProductCategories() {
         </div>
         <Button
           onClick={handleOpenCreate}
-          className="bg-[#E86B35] hover:bg-[#d45a2a] text-white gap-2 h-11 px-6 rounded-md font-semibold"
+          className="bg-[#E86B35] hover:bg-[#d45a2a] text-white gap-2 h-11 px-6 rounded-md font-medium"
         >
           <Plus size={18} /> Add New Category
         </Button>
@@ -282,7 +282,7 @@ export function ProductCategories() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-700 font-medium">
+                  <td className="px-6 py-4 text-slate-700 font-semibold">
                     {cat.name}
                   </td>
                   <td className="px-6 py-4 text-slate-600">{cat.parent}</td>
@@ -321,7 +321,7 @@ export function ProductCategories() {
         <div className="flex items-center justify-center gap-6 text-sm border-t pt-6 pb-6 bg-white">
           <p className="text-gray-500">
             Total{" "}
-            <span className="text-gray-900 font-medium">
+            <span className="text-gray-900 font-semibold">
               {categories.length} items
             </span>
           </p>
@@ -342,7 +342,7 @@ export function ProductCategories() {
                   variant={currentPage === page ? "default" : "ghost"}
                   size="sm"
                   className={cn(
-                    "h-8 w-8 rounded font-medium",
+                    "h-8 w-8 rounded font-semibold",
                     currentPage === page
                       ? "bg-orange-500 text-white hover:bg-orange-600"
                       : "text-gray-500",
@@ -372,7 +372,7 @@ export function ProductCategories() {
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-medium rounded">
+            <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-semibold rounded">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -424,7 +424,7 @@ export function ProductCategories() {
                   )}
                 />
                 {errors.name && (
-                  <p className="text-xs text-red-500 font-medium">
+                  <p className="text-xs text-red-500 font-semibold">
                     {errors.name}
                   </p>
                 )}
@@ -448,7 +448,7 @@ export function ProductCategories() {
                   )}
                 />
                 {errors.desc && (
-                  <p className="text-xs text-red-500 font-medium">
+                  <p className="text-xs text-red-500 font-semibold">
                     {errors.desc}
                   </p>
                 )}
@@ -497,7 +497,7 @@ export function ProductCategories() {
                         <ImageIcon size={24} />
                       </div>
                       <p className="text-sm text-slate-600">
-                        <span className="text-blue-500 font-bold underline">
+                        <span className="text-blue-500 font-semibold underline">
                           Click here
                         </span>{" "}
                         to upload file
@@ -524,14 +524,14 @@ export function ProductCategories() {
               <Button
                 variant="outline"
                 onClick={handleCloseModal}
-                className="px-8 h-10 border-slate-300 text-slate-600 font-semibold bg-white"
+                className="px-8 h-10 border-slate-300 text-slate-600 font-medium bg-white"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={isSaving}
-                className="px-10 h-10 bg-[#E86B35] hover:bg-[#d45a2a] text-white font-semibold"
+                className="px-10 h-10 bg-[#E86B35] hover:bg-[#d45a2a] text-white font-medium"
               >
                 {isSaving ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -558,7 +558,7 @@ export function ProductCategories() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4">
                 <AlertCircle className="h-6 w-6 text-red-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900">
                 Delete Category
               </h3>
               <p className="text-sm text-slate-500 mt-2">
@@ -581,7 +581,7 @@ export function ProductCategories() {
               </Button>
               <Button
                 onClick={handleDelete}
-                className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white font-semibold"
+                className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white font-medium"
               >
                 Yes, Delete
               </Button>

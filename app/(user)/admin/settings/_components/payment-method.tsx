@@ -135,8 +135,8 @@ export function PaymentMethod() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Payment Method Settings</h2>
-        <p className="text-gray-500 text-sm mt-1 font-medium">
+        <h2 className="text-2xl font-semibold text-gray-900">Payment Method Settings</h2>
+        <p className="text-gray-500 text-sm mt-1 font-semibold">
           Configure how customers pay for items on the platform.
         </p>
       </div>
@@ -149,7 +149,7 @@ export function PaymentMethod() {
           return (
             <div key={method.code} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
               <div className={cn("px-6 py-5 flex items-center justify-between", method.requiresProvider && "border-b border-gray-100")}>
-                <h3 className="text-[17px] font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-[17px] font-semibold text-gray-900 flex items-center gap-2">
                   {method.label}
                   {!method.requiresProvider && updatingCode === method.code && (
                     <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
@@ -166,8 +166,8 @@ export function PaymentMethod() {
               {method.requiresProvider && (
                 <div className="px-6 py-5">
                   <div className="mb-4">
-                    <h4 className="text-[14px] font-bold text-gray-900">Payment Gateway</h4>
-                    <p className="text-[13px] text-gray-500 font-medium">Select the provider that will process {method.label} payments:</p>
+                    <h4 className="text-[14px] font-semibold text-gray-900">Payment Gateway</h4>
+                    <p className="text-[13px] text-gray-500 font-semibold">Select the provider that will process {method.label} payments:</p>
                   </div>
                   
                   {method.availableProviders.length > 0 ? (
@@ -179,7 +179,7 @@ export function PaymentMethod() {
                       {method.availableProviders.map((provider) => (
                         <div key={provider.id} className="flex items-center space-x-3">
                           <RadioGroupItem value={provider.id} id={`${method.code}-${provider.id}`} className="h-5 w-5 text-[#E86B35] border-gray-400 data-[state=checked]:border-[#E86B35]" />
-                          <Label htmlFor={`${method.code}-${provider.id}`} className="text-[15px] font-medium text-gray-700 cursor-pointer">{provider.name}</Label>
+                          <Label htmlFor={`${method.code}-${provider.id}`} className="text-[15px] font-semibold text-gray-700 cursor-pointer">{provider.name}</Label>
                         </div>
                       ))}
                     </RadioGroup>
