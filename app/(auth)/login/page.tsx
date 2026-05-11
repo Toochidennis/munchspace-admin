@@ -519,7 +519,7 @@ export default function SignInPage() {
                     name="identifier"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-slate-600 font-semibold">
+                        <FormLabel className="text-slate-600 font-normal">
                           Email{" "}
                           <span className="text-[var(--color-munchred)]">
                             *
@@ -548,17 +548,6 @@ export default function SignInPage() {
                     {isLoading ? "Please wait..." : "Continue"}
                   </Button>
 
-                  <div className="pt-2 text-center">
-                    <span className="text-slate-500 text-sm">
-                      Don&apos;t have an account?{" "}
-                    </span>
-                    <Link
-                      href="/register"
-                      className="text-blue-500 hover:underline text-sm font-semibold"
-                    >
-                      Contact admin
-                    </Link>
-                  </div>
                 </form>
               </Form>
             )}
@@ -591,7 +580,7 @@ export default function SignInPage() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-600 font-semibold">
+                          <FormLabel className="text-slate-600 font-normal">
                             Password{" "}
                             <span className="text-[var(--color-munchred)]">
                               *
@@ -626,7 +615,7 @@ export default function SignInPage() {
                     <div className="flex items-center justify-end">
                       <Link
                         href="/forgot-password"
-                        className="text-sm text-blue-500 hover:underline font-semibold"
+                        className="text-sm text-blue-500 hover:underline font-normal"
                       >
                         Forgot password?
                       </Link>
@@ -715,7 +704,7 @@ export default function SignInPage() {
                     type="button"
                     onClick={handleResendOtp}
                     disabled={resendCooldown > 0 || isLoading}
-                    className="text-sm text-blue-500 hover:underline font-semibold disabled:opacity-50"
+                    className="text-sm text-blue-500 hover:underline font-normal disabled:opacity-50"
                   >
                     {resendCooldown > 0
                       ? `Resend in ${formatTime(resendCooldown)}`

@@ -1261,7 +1261,7 @@ export default function OrdersPage() {
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-semibold text-gray-900">
+                                <p className="text-sm font-normal text-gray-900">
                                   {p.price}
                                 </p>
                                 <p className="text-[11px] text-gray-400 mt-1 font-bold">

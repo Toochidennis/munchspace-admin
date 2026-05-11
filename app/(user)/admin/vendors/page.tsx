@@ -417,7 +417,7 @@ export default function VendorsPage() {
               <Button
                 variant={isFilterOpen ? "default" : "outline"}
                 className={cn(
-                  "h-11 font-semibold border-gray-200 shadow-none gap-2 px-5",
+                  "h-11 font-normal border-gray-200 shadow-none gap-2 px-5",
                   isFilterOpen &&
                     "bg-gray-100 text-gray-900 border-transparent",
                 )}
@@ -431,7 +431,7 @@ export default function VendorsPage() {
           {/* Date Picker Row (If filter open) */}
           {isFilterOpen && (
             <div className="flex flex-wrap gap-3 items-center py-2 border-b border-gray-100">
-              <div className="flex items-center gap-2 px-3 h-9 bg-gray-50 border border-gray-100 rounded-md text-xs font-semibold text-gray-600">
+              <div className="flex items-center gap-2 px-3 h-9 bg-gray-50 border border-gray-100 rounded-md text-xs font-normal text-gray-600">
                 <Filter size={14} /> Custom Date
               </div>
 
@@ -514,13 +514,13 @@ export default function VendorsPage() {
 
           {/* Bulk Actions */}
           <div className="flex items-center gap-4 py-1">
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="text-sm font-normal text-gray-900">
               Selected: {selectedVendors.length}
             </span>
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
-              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
+              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-normal text-xs rounded-md shadow-none"
               onClick={() => {
                 setSelectedVendorForAction(null);
                 setSelectedVendorStatusKey("");
@@ -533,7 +533,7 @@ export default function VendorsPage() {
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
-              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
+              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-normal text-xs rounded-md shadow-none"
               onClick={() => {
                 setSelectedVendorForAction(null);
                 setCustomMessage("");
@@ -545,7 +545,7 @@ export default function VendorsPage() {
             <Button
               disabled={selectedVendors.length === 0}
               variant="outline"
-              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-semibold text-xs rounded-md shadow-none"
+              className="h-9 border-gray-100 bg-gray-50 text-gray-400 font-normal text-xs rounded-md shadow-none"
               onClick={() => openVendorActionModal(null, "deactivate")}
             >
               Deactivate Vendor

@@ -441,12 +441,12 @@ export default function RidersPage() {
               />
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="h-11 border-gray-200 font-semibold text-gray-600">
+              <Button variant="outline" className="h-11 border-gray-200 font-normal text-gray-600">
                 <Download className="mr-2 h-4 w-4" /> Download
               </Button>
               <Button
                 variant={isFilterOpen ? "default" : "outline"}
-                className="h-11 border-gray-200 font-semibold"
+                className="h-11 border-gray-200 font-normal"
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
               >
                 <Filter className="mr-2 h-4 w-4" />

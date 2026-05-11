@@ -324,7 +324,7 @@ export function ServiceChargePayment() {
             setCurrentPage(1);
           }}
           className={cn(
-            "pb-4 text-[15px] font-semibold transition-all relative",
+            "pb-4 text-[15px] font-normal transition-all relative",
             activeSubTab === "BUSINESS"
               ? "text-munchprimary"
               : "text-slate-500 hover:text-slate-700",
@@ -341,7 +341,7 @@ export function ServiceChargePayment() {
             setCurrentPage(1);
           }}
           className={cn(
-            "pb-4 text-[15px] font-semibold transition-all relative",
+            "pb-4 text-[15px] font-normal transition-all relative",
             activeSubTab === "RIDER"
               ? "text-munchprimary"
               : "text-slate-500 hover:text-slate-700",
@@ -363,7 +363,7 @@ export function ServiceChargePayment() {
           </h3>
           <Button
             onClick={() => openEditModal()}
-            className="bg-munchprimary hover:bg-munchprimaryDark text-white gap-2 h-11 px-6 rounded-lg font-semibold transition-colors"
+            className="bg-munchprimary hover:bg-munchprimaryDark text-white gap-2 h-11 px-6 rounded-lg font-normal transition-colors"
           >
             <Plus size={20} />
             Add New
@@ -379,22 +379,22 @@ export function ServiceChargePayment() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b border-slate-100">
-                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900">
+                  <TableHead className="h-16 px-6 text-[13px] font-normal text-slate-900">
                     {activeSubTab === "BUSINESS" ? "Vendors" : "Riders"}
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-normal text-slate-900 border-l border-slate-100">
                     Type
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-normal text-slate-900 border-l border-slate-100">
                     Value
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-normal text-slate-900 border-l border-slate-100">
                     Payout Schedule
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-[13px] font-semibold text-slate-900 border-l border-slate-100">
+                  <TableHead className="h-16 px-6 text-[13px] font-normal text-slate-900 border-l border-slate-100">
                     Last Updated
                   </TableHead>
-                  <TableHead className="h-16 px-6 text-center border-l border-slate-100 text-slate-900 font-semibold">
+                  <TableHead className="h-16 px-6 text-center border-l border-slate-100 text-slate-900 font-normal">
                     -
                   </TableHead>
                 </TableRow>
@@ -406,7 +406,7 @@ export function ServiceChargePayment() {
                       key={item.ownerId}
                       className="hover:bg-slate-50/30 transition-colors border-b border-slate-100 last:border-0"
                     >
-                      <TableCell className="py-6 px-6 text-[14px] text-slate-700 font-semibold">
+                      <TableCell className="py-6 px-6 text-[14px] text-slate-700 font-normal">
                         {activeSubTab === "BUSINESS"
                           ? "All Vendors"
                           : "All Riders"}
@@ -463,7 +463,7 @@ export function ServiceChargePayment() {
                   <TableRow>
                     <TableCell
                       colSpan={6}
-                      className="text-center py-20 text-slate-400 font-semibold"
+                      className="text-center py-20 text-slate-400 font-normal"
                     >
                       No payout assignments found.
                     </TableCell>
@@ -477,7 +477,7 @@ export function ServiceChargePayment() {
         <div className="flex items-center justify-center gap-6 py-8 border-t border-slate-100 bg-white">
           <p className="text-slate-400 text-sm">
             Total{" "}
-            <span className="text-slate-900 font-semibold">
+            <span className="text-slate-900 font-normal">
               {totalItems} items
             </span>
           </p>
@@ -503,7 +503,7 @@ export function ServiceChargePayment() {
                   variant="ghost"
                   onClick={() => setCurrentPage(page)}
                   className={cn(
-                    "h-9 min-w-[36px] px-1 rounded text-sm font-semibold transition-all",
+                    "h-9 min-w-[36px] px-1 rounded text-sm font-normal transition-all",
                     currentPage === page
                       ? "border border-munchprimary text-munchprimary bg-white shadow-sm"
                       : "text-slate-500 hover:text-slate-700",
@@ -520,7 +520,7 @@ export function ServiceChargePayment() {
                   variant="ghost"
                   onClick={() => setCurrentPage(totalPages)}
                   className={cn(
-                    "h-9 min-w-[36px] px-1 rounded text-sm font-semibold",
+                    "h-9 min-w-[36px] px-1 rounded text-sm font-normal",
                     currentPage === totalPages
                       ? "border border-munchprimary text-munchprimary bg-white shadow-sm"
                       : "text-slate-500",
@@ -549,7 +549,7 @@ export function ServiceChargePayment() {
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-[120px] h-10 bg-white border-slate-200 text-slate-600 text-xs font-semibold focus:ring-0 rounded-lg shadow-sm">
+            <SelectTrigger className="w-[120px] h-10 bg-white border-slate-200 text-slate-600 text-xs font-normal focus:ring-0 rounded-lg shadow-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -575,7 +575,7 @@ export function ServiceChargePayment() {
             <Button
               variant="outline"
               onClick={() => setIsEditModalOpen(false)}
-              className="px-8 h-12 border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 rounded-lg"
+              className="px-8 h-12 border-slate-200 text-slate-600 font-normal hover:bg-slate-50 rounded-lg"
               disabled={isSaving}
             >
               Cancel
@@ -614,7 +614,7 @@ export function ServiceChargePayment() {
                 }
               }}
               className={cn(
-                "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all border",
+                "px-6 py-2.5 rounded-lg text-sm font-normal transition-all border",
                 formValues.commissionType === "percentage"
                   ? "bg-slate-900 text-white border-slate-900 shadow-md"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
@@ -637,7 +637,7 @@ export function ServiceChargePayment() {
                 }
               }}
               className={cn(
-                "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all border",
+                "px-6 py-2.5 rounded-lg text-sm font-normal transition-all border",
                 formValues.commissionType === "flat"
                   ? "bg-slate-900 text-white border-slate-900 shadow-md"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
@@ -648,11 +648,11 @@ export function ServiceChargePayment() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold">
+            <Label className="text-slate-700 font-normal">
               Value <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-normal">
                 {formValues.commissionType === "percentage" ? "" : "N"}
               </span>
               <Input
@@ -687,24 +687,24 @@ export function ServiceChargePayment() {
                     : "e.g. 1200.00"
                 }
                 className={cn(
-                  "h-12 bg-white border-slate-200 focus:ring-munchprimary rounded-lg text-base font-semibold",
+                  "h-12 bg-white border-slate-200 focus:ring-munchprimary rounded-lg text-base font-normal",
                   formValues.commissionType === "flat" ? "pl-8" : "pl-4",
                   errors.commission && "border-red-500 focus:ring-red-500",
                 )}
               />
               {formValues.commissionType === "percentage" && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-normal">
                   %
                 </span>
               )}
             </div>
             {errors.commission && (
-              <p className="text-red-500 text-xs font-semibold">{errors.commission}</p>
+              <p className="text-red-500 text-xs font-normal">{errors.commission}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold">
+            <Label className="text-slate-700 font-normal">
               {activeSubTab === "BUSINESS" ? "Vendors" : "Riders"}{" "}
               <span className="text-red-500">*</span>
             </Label>
@@ -734,13 +734,13 @@ export function ServiceChargePayment() {
               </SelectContent>
             </Select>
             {errors.ownerId && (
-              <p className="text-red-500 text-xs font-semibold">{errors.ownerId}</p>
+              <p className="text-red-500 text-xs font-normal">{errors.ownerId}</p>
             )}
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <Label className="text-slate-700 font-semibold min-w-[120px]">
+              <Label className="text-slate-700 font-normal min-w-[120px]">
                 Payout schedule
               </Label>
               <div className="h-px flex-1 bg-slate-100" />
@@ -752,7 +752,7 @@ export function ServiceChargePayment() {
                   setFormValues({ ...formValues, schedule: "weekly" })
                 }
                 className={cn(
-                  "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
+                  "px-6 py-2.5 rounded-lg text-sm font-normal transition-all",
                   formValues.schedule === "weekly"
                     ? "bg-slate-900 text-white shadow-md"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100",
@@ -765,7 +765,7 @@ export function ServiceChargePayment() {
                   setFormValues({ ...formValues, schedule: "monthly" })
                 }
                 className={cn(
-                  "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
+                  "px-6 py-2.5 rounded-lg text-sm font-normal transition-all",
                   formValues.schedule === "monthly"
                     ? "bg-slate-900 text-white shadow-md"
                     : "bg-slate-50 text-slate-500 hover:bg-slate-100",
@@ -803,7 +803,7 @@ export function ServiceChargePayment() {
                 }
               }}
             >
-              <SelectTrigger className="h-12! w-full border-slate-200 rounded-lg text-slate-700 font-semibold">
+              <SelectTrigger className="h-12! w-full border-slate-200 rounded-lg text-slate-700 font-normal">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[110]">
@@ -838,7 +838,7 @@ export function ServiceChargePayment() {
             />
             <Label
               htmlFor="notify"
-              className="text-[15px] font-semibold text-slate-700 cursor-pointer"
+              className="text-[15px] font-normal text-slate-700 cursor-pointer"
             >
               Notify the {activeSubTab === "BUSINESS" ? "vendors" : "riders"} via email about this update.
             </Label>
@@ -856,7 +856,7 @@ export function ServiceChargePayment() {
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
-              className="px-8 h-12 border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 rounded-lg"
+              className="px-8 h-12 border-slate-200 text-slate-600 font-normal hover:bg-slate-50 rounded-lg"
               disabled={isDeleting}
             >
               Cancel
@@ -878,7 +878,7 @@ export function ServiceChargePayment() {
         <div className="space-y-4">
           <p className="text-slate-600 text-[16px]">
             Are you sure you want to update the{" "}
-            <span className="font-semibold text-slate-900">
+            <span className="font-normal text-slate-900">
               {activeSubTab === "BUSINESS"
                 ? "Vendor Platform Commission"
                 : "Delivery Agent Platform Commission"}

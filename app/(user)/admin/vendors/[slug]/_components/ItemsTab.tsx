@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const TABS = [
   { label: "All", key: "all" },
@@ -189,7 +190,7 @@ export default function ItemsTab({ businessId }: { businessId?: string }) {
         </div>
 
         {/* Tabs - Numbers displayed exactly as in your image */}
-        <div className="flex items-center gap-6 border-b border-gray-100 mb-0 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-6 border-b border-gray-100 mb-0 overflow-x-auto no-scrollbar [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {TABS.map((tab) => {
             let count = tab.key === "all" ? Object.values(statusCounts).reduce((a: any, b: any) => a + b, 0) : statusCounts[tab.key] || 0;
             
@@ -220,8 +221,13 @@ export default function ItemsTab({ businessId }: { businessId?: string }) {
         {/* Table Content */}
         <div className="overflow-hidden min-h-[400px]">
           {isLoading && items.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
+            <div className="space-y-4 py-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">

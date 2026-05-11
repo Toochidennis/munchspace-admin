@@ -383,10 +383,10 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
                 <div key={vIdx} className="space-y-4">
                   {/* Vendor Title & Overall Performance % */}
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-normal text-gray-900">
                       {vendor.vendor}
                     </span>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-normal text-gray-900">
                       {vendorHeaderPercent}%
                     </span>
                   </div>
@@ -445,7 +445,7 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
       <Card className="border-none shadow-sm rounded-md overflow-hidden bg-white">
         <CardHeader className="border-b py-6 px-6 space-y-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">
+            <CardTitle className="text-lg font-normal">
               Vendors ({tableDataLength})
             </CardTitle>
             <div className="flex gap-3">

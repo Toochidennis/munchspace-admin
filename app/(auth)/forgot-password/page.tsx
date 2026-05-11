@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-600 font-semibold">
+                    <FormLabel className="text-slate-600 font-normal">
                       Email <span className="text-(--color-munchred)">*</span>
                     </FormLabel>
                     <FormControl>
@@ -153,7 +153,7 @@ export default function ResetPasswordPage() {
 
             <Button
               onClick={handleGoToLogin}
-              className="w-full h-12 bg-(--color-munchprimary) hover:bg-(--color-munchprimaryDark) text-white font-semibold rounded text-lg transition-colors"
+              className="w-full h-12 bg-(--color-munchprimary) hover:bg-(--color-munchprimaryDark) text-white font-normal rounded text-lg transition-colors"
             >
               Got it
             </Button>

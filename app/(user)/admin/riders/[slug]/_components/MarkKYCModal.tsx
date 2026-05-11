@@ -58,7 +58,7 @@ export default function MarkKYCModal({ isOpen, onClose }: any) {
                 </div>
                 <span
                   className={cn(
-                    "text-sm font-semibold transition-colors",
+                    "text-sm font-normal transition-colors",
                     selected === status ? "text-gray-900" : "text-gray-500",
                   )}
                 >
@@ -85,12 +85,12 @@ export default function MarkKYCModal({ isOpen, onClose }: any) {
             <Button
               variant="outline"
               onClick={onClose}
-              className="px-8 h-11 text-gray-500 border-gray-200 font-semibold"
+              className="px-8 h-11 text-gray-500 border-gray-200 font-normal"
             >
               Cancel
             </Button>
             <Button
-              className="px-8 h-11 bg-[#E86B35] text-white hover:bg-[#d15d2c] font-semibold"
+              className="px-8 h-11 bg-[#E86B35] text-white hover:bg-[#d15d2c] font-normal"
               onClick={() => {
                 toast.success("Document status updated");
                 onClose();

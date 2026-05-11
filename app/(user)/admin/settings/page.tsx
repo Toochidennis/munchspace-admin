@@ -35,13 +35,13 @@ export default function SettingsPage() {
           <TabsList className="border-none w-fit my-5 ms-5">
             <TabsTrigger
               value="platform"
-              className="px-6 py-5 ms-3 border text-[16px] border-gray-200 data-[state=active]:border-0 data-[state=active]:bg-munchprimary text-black data-[state=active]:text-white rounded-sm font-semibold"
+              className="px-6 py-5 ms-3 border text-[16px] border-gray-200 data-[state=active]:border-0 data-[state=active]:bg-munchprimary text-black data-[state=active]:text-white rounded-sm font-normal"
             >
               Platform Management
             </TabsTrigger>
             <TabsTrigger
               value="vendor"
-              className="px-6 py-5 ms-3 border text-[16px] border-gray-200 data-[state=active]:border-0 data-[state=active]:bg-munchprimary text-black data-[state=active]:text-white rounded-sm font-semibold"
+              className="px-6 py-5 ms-3 border text-[16px] border-gray-200 data-[state=active]:border-0 data-[state=active]:bg-munchprimary text-black data-[state=active]:text-white rounded-sm font-normal"
             >
               Vendor & Services
             </TabsTrigger>

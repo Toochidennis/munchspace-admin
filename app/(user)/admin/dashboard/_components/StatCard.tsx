@@ -19,7 +19,7 @@ export const StatCard = ({ title, value, trend, trendType = "up" }: StatCardProp
       <ArrowRight size={20} className="text-gray-600" />
     </CardHeader>
     <CardContent className="pt-0 flex gap-2 items-center">
-      <div className="text-3xl font-semibold">{value}</div>
+      <div className="text-3xl font-normal">{value}</div>
       <div
         className={cn(
           "flex items-center gap-1 text-xs border rounded-full px-2 h-6",

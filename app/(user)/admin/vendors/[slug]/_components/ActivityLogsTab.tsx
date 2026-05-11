@@ -212,7 +212,7 @@ export default function ActivityLogsTab({ businessId }: { businessId?: string })
             variant="outline"
             onClick={handleLoadMore}
             disabled={isLoading}
-            className="h-10 px-6 border-gray-200 text-gray-700 font-semibold rounded-md shadow-sm"
+            className="h-10 px-6 border-gray-200 text-gray-700 font-normal rounded-md shadow-sm"
           >
             {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Load more

@@ -240,7 +240,7 @@ export default function DeliveriesTab({ riderId }: { riderId: string }) {
                             <span className="text-gray-400 text-xs">More delivery informations</span>
                             <button 
                               onClick={() => toggleRow(item.orderId)}
-                              className="flex items-center gap-1 text-gray-900 text-xs font-semibold hover:underline"
+                              className="flex items-center gap-1 text-gray-900 text-xs font-normal hover:underline"
                             >
                               {isExpanded ? "Collapse" : "Expand"} <ChevronDown size={14} className={cn("transition-transform text-gray-400", isExpanded && "rotate-180")} />
                             </button>
@@ -253,11 +253,11 @@ export default function DeliveriesTab({ riderId }: { riderId: string }) {
                                 <div className="space-y-2 pb-4 border-b border-gray-100">
                                   <div className="flex justify-between items-start gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Pickup Location</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{item.pickupAddress}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{item.pickupAddress}</span>
                                   </div>
                                   <div className="flex justify-between items-start gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Delivery Location</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{item.dropoffAddress}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{item.dropoffAddress}</span>
                                   </div>
                                 </div>
 
@@ -265,15 +265,15 @@ export default function DeliveriesTab({ riderId }: { riderId: string }) {
                                 <div className="space-y-2 pb-4 border-b border-gray-100">
                                   <div className="flex justify-between items-center gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Started at</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{formatDateTime(item.startedAt)}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{formatDateTime(item.startedAt)}</span>
                                   </div>
                                   <div className="flex justify-between items-center gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Pickup at</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{formatDateTime(item.pickedUpAt)}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{formatDateTime(item.pickedUpAt)}</span>
                                   </div>
                                   <div className="flex justify-between items-center gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Completed at</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{formatDateTime(item.completedAt)}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{formatDateTime(item.completedAt)}</span>
                                   </div>
                                 </div>
 
@@ -281,11 +281,11 @@ export default function DeliveriesTab({ riderId }: { riderId: string }) {
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Expected Pickup Time</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{formatDateTime(item.expectedPickupTime)}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{formatDateTime(item.expectedPickupTime)}</span>
                                   </div>
                                   <div className="flex justify-between items-center gap-8">
                                     <span className="text-gray-400 text-xs flex-shrink-0">Expected Delivery Time</span>
-                                    <span className="text-gray-900 text-xs font-semibold text-right">{formatDateTime(item.expectedDeliveryTime)}</span>
+                                    <span className="text-gray-900 text-xs font-normal text-right">{formatDateTime(item.expectedDeliveryTime)}</span>
                                   </div>
                                 </div>
                               </div>

@@ -79,7 +79,7 @@ export default function CreateNewPasswordPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-600 font-semibold">
+                    <FormLabel className="text-slate-600 font-normal">
                       New password{" "}
                       <span className="text-(--color-munchred)">*</span>
                     </FormLabel>
@@ -110,7 +110,7 @@ export default function CreateNewPasswordPage() {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-600 font-semibold">
+                    <FormLabel className="text-slate-600 font-normal">
                       Confirm password{" "}
                       <span className="text-(--color-munchred)">*</span>
                     </FormLabel>
@@ -177,7 +177,7 @@ export default function CreateNewPasswordPage() {
 
             <Button
               onClick={() => router.push("/login")}
-              className="w-full h-12 bg-(--color-munchprimary) hover:bg-(--color-munchprimaryDark) text-white font-semibold rounded text-lg transition-colors"
+              className="w-full h-12 bg-(--color-munchprimary) hover:bg-(--color-munchprimaryDark) text-white font-normal rounded text-lg transition-colors"
             >
               Go to Login
             </Button>
