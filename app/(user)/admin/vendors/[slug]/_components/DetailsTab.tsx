@@ -82,10 +82,10 @@ export default function DetailsTab({ data }: { data?: any }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-y-10 gap-x-12">
           {storeInfoFields.map((item, i) => (
             <div key={i}>
-              <p className="text-[11px] tracking-wider text-gray-400 font-semibold mb-2 uppercase">
+              <p className="text-[11px] tracking-wider text-gray-400 font-normal mb-2 uppercase">
                 {item.label}
               </p>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-normal text-gray-900">
                 {item.value}
               </p>
             </div>
@@ -96,11 +96,11 @@ export default function DetailsTab({ data }: { data?: any }) {
       {/* Bank Account */}
       <Card className="p-4 border shadow-none rounded-xl bg-white flex justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-13 h-13 bg-[#E86B35] rounded-lg flex items-center justify-center text-white font-semibold text-[10px] leading-tight text-center px-2 min-w-[52px]">
+          <div className="w-13 h-13 bg-[#E86B35] rounded-lg flex items-center justify-center text-white font-normal text-[10px] leading-tight text-center px-2 min-w-[52px]">
             {payoutAccount?.bankName ? payoutAccount.bankName.substring(0, 8).toUpperCase() : "BANK"}
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-900 mb-1">
+            <p className="text-sm font-normal text-gray-900 mb-1">
               {payoutAccount?.accountName || "N/A"}
             </p>
             <p className="text-xs text-gray-500 font-medium">
@@ -114,7 +114,7 @@ export default function DetailsTab({ data }: { data?: any }) {
       <Card className="md:p-4 p-4 border shadow-none rounded-xl bg-white">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="working-hours" className="border-none">
-            <AccordionTrigger className="text-lg font-semibold text-gray-900 hover:no-underline p-0">
+            <AccordionTrigger className="text-lg font-normal text-gray-900 hover:no-underline p-0">
               Working Hours
             </AccordionTrigger>
             <AccordionContent className="pt-8 pb-0">
@@ -137,7 +137,7 @@ export default function DetailsTab({ data }: { data?: any }) {
                         />
                         <span
                           className={cn(
-                            "font-semibold text-sm",
+                            "font-normal text-sm",
                             isEnabled ? "text-gray-900" : "text-gray-400",
                           )}
                         >
@@ -147,11 +147,11 @@ export default function DetailsTab({ data }: { data?: any }) {
 
                       <div className="flex items-center gap-2">
                         {isEnabled ? (
-                          <span className="text-sm font-semibold text-gray-600">
+                          <span className="text-sm font-normal text-gray-600">
                             {formatTimeStr(data.openingTime)} - {formatTimeStr(data.closingTime)}
                           </span>
                         ) : (
-                          <span className="text-sm font-semibold text-red-400 tracking-tight">
+                          <span className="text-sm font-normal text-red-400 tracking-tight">
                             Closed
                           </span>
                         )}

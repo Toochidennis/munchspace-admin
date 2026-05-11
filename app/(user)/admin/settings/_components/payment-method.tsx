@@ -136,7 +136,7 @@ export function PaymentMethod() {
     <div className="space-y-8 animate-in fade-in duration-300">
       <div>
         <h2 className="text-2xl font-semibold text-gray-900">Payment Method Settings</h2>
-        <p className="text-gray-500 text-sm mt-1 font-semibold">
+        <p className="text-gray-500 text-sm mt-1 font-normal">
           Configure how customers pay for items on the platform.
         </p>
       </div>
@@ -167,7 +167,7 @@ export function PaymentMethod() {
                 <div className="px-6 py-5">
                   <div className="mb-4">
                     <h4 className="text-[14px] font-semibold text-gray-900">Payment Gateway</h4>
-                    <p className="text-[13px] text-gray-500 font-semibold">Select the provider that will process {method.label} payments:</p>
+                    <p className="text-[13px] text-gray-500 font-normal">Select the provider that will process {method.label} payments:</p>
                   </div>
                   
                   {method.availableProviders.length > 0 ? (
@@ -179,7 +179,7 @@ export function PaymentMethod() {
                       {method.availableProviders.map((provider) => (
                         <div key={provider.id} className="flex items-center space-x-3">
                           <RadioGroupItem value={provider.id} id={`${method.code}-${provider.id}`} className="h-5 w-5 text-[#E86B35] border-gray-400 data-[state=checked]:border-[#E86B35]" />
-                          <Label htmlFor={`${method.code}-${provider.id}`} className="text-[15px] font-semibold text-gray-700 cursor-pointer">{provider.name}</Label>
+                          <Label htmlFor={`${method.code}-${provider.id}`} className="text-[15px] font-normal text-gray-700 cursor-pointer">{provider.name}</Label>
                         </div>
                       ))}
                     </RadioGroup>
@@ -191,7 +191,7 @@ export function PaymentMethod() {
                     <Button 
                       disabled={!hasChanges(method) || updatingCode === method.code} 
                       onClick={() => handleSave(method)}
-                      className="bg-gray-200 disabled:bg-gray-200 text-white disabled:text-gray-400 shadow-none font-semibold px-6 transition-colors"
+                      className="bg-gray-200 disabled:bg-gray-200 text-white disabled:text-gray-400 shadow-none font-normal px-6 transition-colors"
                       style={hasChanges(method) ? { backgroundColor: "#E86B35", color: "#FFF" } : undefined}
                     >
                       {updatingCode === method.code && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

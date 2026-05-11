@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const TABS = [
   { label: "All", key: "all" },
@@ -373,7 +374,7 @@ export default function OrdersTab({ businessId }: { businessId?: string }) {
         )}
 
         {/* Dynamic Tabs */}
-        <div className="flex items-center gap-6 border-b border-gray-100 mb-0 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-6 border-b border-gray-100 mb-0 overflow-x-auto no-scrollbar [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {TABS.map((tab) => {
             const count = getTabCount(tab.key);
             // Hide tabs with 0 count except 'all' and currently active
@@ -404,8 +405,13 @@ export default function OrdersTab({ businessId }: { businessId?: string }) {
         {/* Table Content */}
         <div className="overflow-hidden min-h-[400px]">
           {isLoading && orders.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
+            <div className="space-y-4 py-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
             </div>
           ) : orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">

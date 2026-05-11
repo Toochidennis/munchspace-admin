@@ -369,13 +369,13 @@ export default function RemittanceTab() {
                 setIsModalOpen(false);
                 resetForm();
               }}
-              className="h-10 border-gray-200 text-gray-600 font-semibold rounded-lg"
+              className="h-10 border-gray-200 text-gray-600 font-normal rounded-lg"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
-              className="h-10 px-8 bg-[#E86B35] hover:bg-[#d15d2c] text-white font-semibold rounded-lg"
+              className="h-10 px-8 bg-[#E86B35] hover:bg-[#d15d2c] text-white font-normal rounded-lg"
             >
               Save
             </Button>
@@ -394,7 +394,7 @@ export default function RemittanceTab() {
 
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-normal text-gray-700">
                 Payout Amount <span className="text-red-500">*</span>
               </label>
               <Input
@@ -417,7 +417,7 @@ export default function RemittanceTab() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-normal text-gray-700">
                 Select Vendor's account <span className="text-red-500">*</span>
               </label>
               <Select defaultValue="gtbank">
@@ -431,7 +431,7 @@ export default function RemittanceTab() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-normal text-gray-700">
                 Payout Receipt <span className="text-red-500">*</span>
               </label>
               <input
@@ -488,7 +488,7 @@ export default function RemittanceTab() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">
+              <label className="text-sm font-normal text-gray-700">
                 Internal Note <span className="text-red-500">*</span>
               </label>
               <Textarea

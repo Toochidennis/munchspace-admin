@@ -180,11 +180,11 @@ export function LegalPrivacy() {
           <Card key={doc.id} className="border border-slate-200 shadow-sm bg-white rounded-xl overflow-hidden">
             <CardContent className="flex flex-col sm:flex-row justify-between sm:items-center p-6 gap-4">
               <div className="space-y-2">
-                <CardTitle className="text-[17px] font-semibold text-[#1A1C1E]">{doc.title}</CardTitle>
+                <CardTitle className="text-[17px] font-normal text-[#1A1C1E]">{doc.title}</CardTitle>
                 <CardDescription className="text-[15px] text-slate-500 max-w-2xl leading-relaxed">
                   {doc.desc}
                 </CardDescription>
-                <div className="text-[14px] text-slate-400 font-semibold pt-2 flex items-center gap-1.5">
+                <div className="text-[14px] text-slate-400 font-normal pt-2 flex items-center gap-1.5">
                   <Clock size={14} />
                   {legalDocsData[doc.id]?.lastUpdatedAt 
                     ? `Last updated: ${format(new Date(legalDocsData[doc.id].lastUpdatedAt), "MMM d, yyyy")}`
@@ -225,7 +225,7 @@ export function LegalPrivacy() {
             <Button
               variant="outline"
               onClick={() => setIsModalOpen(false)}
-              className="h-[42px] px-6 font-semibold text-slate-700 border-slate-300 rounded-lg hover:bg-slate-50"
+              className="h-[42px] px-6 font-normal text-slate-700 border-slate-300 rounded-lg hover:bg-slate-50"
             >
               Cancel
             </Button>
@@ -279,7 +279,7 @@ export function LegalPrivacy() {
                   onCheckedChange={(c) => setNotifyVendorAndRider(!!c)}
                   className="data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35] h-5 w-5 rounded-[4px]"
                 />
-                <Label htmlFor="notify-riders" className="text-[15px] font-semibold text-[#1A1C1E] cursor-pointer">
+                <Label htmlFor="notify-riders" className="text-[15px] font-normal text-[#1A1C1E] cursor-pointer">
                   Riders & vendors
                 </Label>
               </div>
@@ -290,7 +290,7 @@ export function LegalPrivacy() {
                   onCheckedChange={(c) => setNotifyCustomers(!!c)}
                   className="data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35] h-5 w-5 rounded-[4px]"
                 />
-                <Label htmlFor="notify-customers" className="text-[15px] font-semibold text-[#1A1C1E] cursor-pointer">
+                <Label htmlFor="notify-customers" className="text-[15px] font-normal text-[#1A1C1E] cursor-pointer">
                   Customers
                 </Label>
               </div>

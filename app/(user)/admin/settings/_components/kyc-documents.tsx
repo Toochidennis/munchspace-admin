@@ -221,7 +221,7 @@ export default function KYCDocumentsPage() {
   };
 
   const tabTriggerClass = cn(
-    "rounded-none border-0 border-b-3 border-transparent bg-transparent px-2 pb-1 font-semibold shadow-none transition-all",
+    "rounded-none border-0 border-b-3 border-transparent bg-transparent px-2 pb-1 font-normal shadow-none transition-all",
     "data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] data-[state=active]:bg-transparent data-[state=active]:shadow-none",
     "hover:text-[#E86B35]/70",
   );
@@ -239,7 +239,7 @@ export default function KYCDocumentsPage() {
         </div>
         <Button
           onClick={() => setShowModal(true)}
-          className="bg-[#E86B35] hover:bg-[#d45a2a] text-white gap-2 h-11 px-6 rounded-md font-semibold"
+          className="bg-[#E86B35] hover:bg-[#d45a2a] text-white gap-2 h-11 px-6 rounded-md font-normal"
         >
           <Plus size={18} /> Add New Document
         </Button>
@@ -292,7 +292,7 @@ export default function KYCDocumentsPage() {
                       key={doc.id}
                       className="hover:bg-slate-50/50 transition-colors"
                     >
-                      <td className="px-6 py-4 font-semibold">{doc.label}</td>
+                      <td className="px-6 py-4 font-normal">{doc.label}</td>
                       <td className="px-6 py-4 text-slate-500 capitalize">
                         {doc.inputType}
                       </td>
@@ -305,7 +305,7 @@ export default function KYCDocumentsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end items-center gap-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            <span className="text-[10px] font-normal text-slate-400 uppercase tracking-wider">
                               {doc.isActive ? "Active" : "Inactive"}
                             </span>
                             <Switch
@@ -359,7 +359,7 @@ export default function KYCDocumentsPage() {
                     key={page}
                     variant={currentPage === page ? "default" : "ghost"}
                     className={cn(
-                      "h-8 w-8 text-xs font-semibold",
+                      "h-8 w-8 text-xs font-normal",
                       currentPage === page
                         ? "bg-[#E86B35] text-white hover:bg-[#d45a2a]"
                         : "text-slate-500 hover:bg-slate-100",
@@ -425,7 +425,7 @@ export default function KYCDocumentsPage() {
               </Tabs>
 
               <div className="space-y-2 pt-2">
-                <Label className="text-sm font-semibold">
+                <Label className="text-sm font-normal">
                   Input Type <span className="text-red-500">*</span>
                 </Label>
                 <Select
@@ -443,7 +443,7 @@ export default function KYCDocumentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">
+                <Label className="text-sm font-normal">
                   Document Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -456,14 +456,14 @@ export default function KYCDocumentsPage() {
                   )}
                 />
                 {errors.title && (
-                  <p className="text-xs text-red-500 font-semibold">
+                  <p className="text-xs text-red-500 font-normal">
                     {errors.title}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">
+                <Label className="text-sm font-normal">
                   Short Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
@@ -478,14 +478,14 @@ export default function KYCDocumentsPage() {
                   )}
                 />
                 {errors.shortDescription && (
-                  <p className="text-xs text-red-500 font-semibold">
+                  <p className="text-xs text-red-500 font-normal">
                     {errors.shortDescription}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">
+                <Label className="text-sm font-normal">
                   Customer Instructions <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
@@ -500,7 +500,7 @@ export default function KYCDocumentsPage() {
                   )}
                 />
                 {errors.description && (
-                  <p className="text-xs text-red-500 font-semibold">
+                  <p className="text-xs text-red-500 font-normal">
                     {errors.description}
                   </p>
                 )}
@@ -508,7 +508,7 @@ export default function KYCDocumentsPage() {
 
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-normal text-slate-900">
                     Required Document
                   </p>
                   <p className="text-xs text-slate-500">

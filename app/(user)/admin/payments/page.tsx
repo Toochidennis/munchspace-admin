@@ -755,7 +755,7 @@ export default function PaymentsPage() {
             <div className="bg-gray-50 rounded-md p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Amount</span>
-                <span className="font-semibold text-gray-900">{selectedPaymentForVerify.currency} {selectedPaymentForVerify.amount.toLocaleString()}</span>
+                <span className="font-normal text-gray-900">{selectedPaymentForVerify.currency} {selectedPaymentForVerify.amount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Reference</span>

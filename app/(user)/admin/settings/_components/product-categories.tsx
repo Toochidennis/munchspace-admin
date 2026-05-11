@@ -282,7 +282,7 @@ export function ProductCategories() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-700 font-semibold">
+                  <td className="px-6 py-4 text-slate-700 font-normal">
                     {cat.name}
                   </td>
                   <td className="px-6 py-4 text-slate-600">{cat.parent}</td>
@@ -321,7 +321,7 @@ export function ProductCategories() {
         <div className="flex items-center justify-center gap-6 text-sm border-t pt-6 pb-6 bg-white">
           <p className="text-gray-500">
             Total{" "}
-            <span className="text-gray-900 font-semibold">
+            <span className="text-gray-900 font-normal">
               {categories.length} items
             </span>
           </p>
@@ -342,7 +342,7 @@ export function ProductCategories() {
                   variant={currentPage === page ? "default" : "ghost"}
                   size="sm"
                   className={cn(
-                    "h-8 w-8 rounded font-semibold",
+                    "h-8 w-8 rounded font-normal",
                     currentPage === page
                       ? "bg-orange-500 text-white hover:bg-orange-600"
                       : "text-gray-500",
@@ -372,7 +372,7 @@ export function ProductCategories() {
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-semibold rounded">
+            <SelectTrigger className="w-[110px] h-10 bg-gray-50 border-gray-200 text-xs font-normal rounded">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -407,7 +407,7 @@ export function ProductCategories() {
             </div>
             <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto text-slate-700">
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">
+                <Label className="text-sm font-normal">
                   Category Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -424,14 +424,14 @@ export function ProductCategories() {
                   )}
                 />
                 {errors.name && (
-                  <p className="text-xs text-red-500 font-semibold">
+                  <p className="text-xs text-red-500 font-normal">
                     {errors.name}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">
+                <Label className="text-sm font-normal">
                   Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
@@ -448,14 +448,14 @@ export function ProductCategories() {
                   )}
                 />
                 {errors.desc && (
-                  <p className="text-xs text-red-500 font-semibold">
+                  <p className="text-xs text-red-500 font-normal">
                     {errors.desc}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Category Image</Label>
+                <Label className="text-sm font-normal">Category Image</Label>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -497,7 +497,7 @@ export function ProductCategories() {
                         <ImageIcon size={24} />
                       </div>
                       <p className="text-sm text-slate-600">
-                        <span className="text-blue-500 font-semibold underline">
+                        <span className="text-blue-500 font-normal underline">
                           Click here
                         </span>{" "}
                         to upload file
@@ -508,7 +508,7 @@ export function ProductCategories() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Parent Category</Label>
+                <Label className="text-sm font-normal">Parent Category</Label>
                 <Select value={catParent} onValueChange={setCatParent}>
                   <SelectTrigger className="h-12! w-full border-slate-200">
                     <SelectValue placeholder="Select parent category" />
@@ -563,7 +563,7 @@ export function ProductCategories() {
               </h3>
               <p className="text-sm text-slate-500 mt-2">
                 Are you sure you want to delete{" "}
-                <span className="font-semibold text-slate-700">
+                <span className="font-normal text-slate-700">
                   "{deleteModal.name}"
                 </span>
                 ?
@@ -575,7 +575,7 @@ export function ProductCategories() {
                 onClick={() =>
                   setDeleteModal({ show: false, id: null, name: "" })
                 }
-                className="flex-1 h-10 border-slate-300 text-slate-600 font-semibold bg-white"
+                className="flex-1 h-10 border-slate-300 text-slate-600 font-normal bg-white"
               >
                 No, Keep it
               </Button>

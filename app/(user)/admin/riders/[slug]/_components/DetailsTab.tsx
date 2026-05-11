@@ -117,7 +117,7 @@ export default function DetailsTab({ riderId }: { riderId: string }) {
               <p className="text-[11px] tracking-wider text-gray-400 font-bold mb-2 uppercase">
                 {item.label}
               </p>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-normal text-gray-900">
                 {item.value || "N/A"}
               </p>
             </div>
@@ -136,7 +136,7 @@ export default function DetailsTab({ riderId }: { riderId: string }) {
               <p className="text-[11px] tracking-wider text-gray-400 font-bold mb-2 uppercase">
                 {item.label}
               </p>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-normal text-gray-900">
                 {item.value || "N/A"}
               </p>
             </div>

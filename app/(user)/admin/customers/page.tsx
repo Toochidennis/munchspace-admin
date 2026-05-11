@@ -348,7 +348,7 @@ export default function CustomersPage() {
                     setEndDate(undefined);
                   }}
                 >
-                  <SelectTrigger className="w-[160px] h-9 bg-white border-slate-200 text-sm font-semibold shadow-none">
+                  <SelectTrigger className="w-[160px] h-9 bg-white border-slate-200 text-sm font-normal shadow-none">
                     <CalendarIcon size={14} className="mr-2 text-slate-400" />
                     <SelectValue placeholder="Last 7 days" />
                   </SelectTrigger>
@@ -383,13 +383,13 @@ export default function CustomersPage() {
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
-                      className="h-10 text-xs font-semibold border-slate-200 text-slate-600 gap-2 shadow-none"
+                      className="h-10 text-xs font-normal border-slate-200 text-slate-600 gap-2 shadow-none"
                     >
                       <Download size={14} /> Download
                     </Button>
                     <Button
                       variant={isFilterOpen ? "default" : "outline"}
-                      className={cn("h-10 text-xs font-semibold border-slate-200 shadow-none gap-2", isFilterOpen && "bg-slate-100 text-slate-900 border-transparent")}
+                      className={cn("h-10 text-xs font-normal border-slate-200 shadow-none gap-2", isFilterOpen && "bg-slate-100 text-slate-900 border-transparent")}
                       onClick={() => setIsFilterOpen(!isFilterOpen)}
                     >
                       <Filter size={14} /> Filter {isFilterOpen && <X size={14} />}
@@ -400,7 +400,7 @@ export default function CustomersPage() {
                 {/* Filters Row */}
                 {isFilterOpen && (
                   <div className="flex flex-wrap gap-3 items-center py-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 px-3 h-9 bg-slate-50 border border-slate-100 rounded-md text-xs font-semibold text-slate-600">
+                    <div className="flex items-center gap-2 px-3 h-9 bg-slate-50 border border-slate-100 rounded-md text-xs font-normal text-slate-600">
                       <Filter size={14} /> Filter
                     </div>
 
@@ -454,7 +454,7 @@ export default function CustomersPage() {
 
                     <Button
                       variant="ghost"
-                      className="h-9 text-xs font-semibold text-slate-500 hover:text-slate-900"
+                      className="h-9 text-xs font-normal text-slate-500 hover:text-slate-900"
                       onClick={() => {
                         setSearchQuery("");
                         setDateRange("7");
@@ -609,7 +609,7 @@ export default function CustomersPage() {
                                 align="end"
                                 className="w-48 p-1 rounded-lg shadow-xl"
                               >
-                                <DropdownMenuItem asChild className="gap-2 text-xs py-2.5 font-semibold cursor-pointer">
+                                <DropdownMenuItem asChild className="gap-2 text-xs py-2.5 font-normal cursor-pointer">
                                   <Link href={`/admin/customers/${c.id}`}>
                                     <Eye size={14} /> View Details
                                   </Link>
@@ -619,7 +619,7 @@ export default function CustomersPage() {
                                     setSelectedCustomer(c);
                                     setShowNotifyModal(true);
                                   }}
-                                  className="gap-2 text-xs py-2.5 font-semibold cursor-pointer"
+                                  className="gap-2 text-xs py-2.5 font-normal cursor-pointer"
                                 >
                                   <Mail size={14} /> Notify Customer...
                                 </DropdownMenuItem>
@@ -632,14 +632,14 @@ export default function CustomersPage() {
                                       setSuspendNote("");
                                       setShowSuspendModal(true);
                                     }}
-                                    className="gap-2 text-xs py-2.5 font-semibold text-red-600 border-t cursor-pointer focus:text-red-700"
+                                    className="gap-2 text-xs py-2.5 font-normal text-red-600 border-t cursor-pointer focus:text-red-700"
                                   >
                                     <AlertCircle size={14} /> Suspend Customer
                                   </DropdownMenuItem>
                                 ) : (
                                   <DropdownMenuItem
                                     onClick={() => handleUnsuspend(c.id)}
-                                    className="gap-2 text-xs py-2.5 font-semibold text-green-600 border-t cursor-pointer focus:text-green-700"
+                                    className="gap-2 text-xs py-2.5 font-normal text-green-600 border-t cursor-pointer focus:text-green-700"
                                   >
                                     <CheckCircle2 size={14} /> Unsuspend Customer
                                   </DropdownMenuItem>

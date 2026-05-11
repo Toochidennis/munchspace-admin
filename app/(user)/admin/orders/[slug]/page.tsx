@@ -401,7 +401,7 @@ export default function OrderDetailsPage() {
         <div className="flex gap-2">
           {!["completed", "cancelled", "payment_expired"].includes(order.status.key) && (
             <Button 
-              className="bg-[#B64A26] hover:bg-[#963d1f] rounded-md text-white font-semibold"
+              className="bg-[#B64A26] hover:bg-[#963d1f] rounded-md text-white font-normal"
               onClick={() => {
                 setSelectedStatusKey("");
                 setStatusChangeReason("");
@@ -416,7 +416,7 @@ export default function OrderDetailsPage() {
           {!["completed", "cancelled", "payment_expired"].includes(order.status.key) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="rounded-md bg-white border-gray-200 text-gray-700 font-semibold">
+                <Button variant="outline" className="rounded-md bg-white border-gray-200 text-gray-700 font-normal">
                   More actions <MoreHorizontal className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -465,7 +465,7 @@ export default function OrderDetailsPage() {
               <h3 className="font-semibold text-gray-900">Products</h3>
               <div
                 className={cn(
-                  "px-3 py-1 rounded text-sm font-semibold text-white",
+                  "px-3 py-1 rounded text-sm font-normal text-white",
                   order.status.key === "ready_for_pickup" && "bg-[#EB2F96]",
                   order.status.key === "out_for_delivery" && "bg-blue-500",
                   order.status.key === "completed" && "bg-green-500",
@@ -516,14 +516,14 @@ export default function OrderDetailsPage() {
                         <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 text-xs">No img</div>
                       )}
                       <div className="flex flex-col justify-center">
-                        <p className="font-semibold text-sm text-gray-900">{item.name}</p>
+                        <p className="font-normal text-sm text-gray-900">{item.name}</p>
                         <p className="text-xs text-[#1677FF] hover:underline cursor-pointer mt-0.5">
                           {item.variantName || "Item"}
                         </p>
                       </div>
                     </div>
                     <div className="text-right flex flex-col justify-center">
-                      <p className="text-[15px] font-semibold text-gray-900">
+                      <p className="text-[15px] font-normal text-gray-900">
                         NGN {item.unitPrice?.toLocaleString()}
                       </p>
                       <p className="text-xs text-gray-500 font-medium mt-0.5">
@@ -537,7 +537,7 @@ export default function OrderDetailsPage() {
                       <Button
                         variant={"outline"}
                         size={"sm"}
-                        className="bg-white flex items-center text-[#1677FF] border-[#1677FF] hover:bg-[#E6F4FF] hover:text-[#1677FF] h-8 rounded px-3 font-semibold"
+                        className="bg-white flex items-center text-[#1677FF] border-[#1677FF] hover:bg-[#E6F4FF] hover:text-[#1677FF] h-8 rounded px-3 font-normal"
                         onClick={() => setAssignCourierOpen(true)}
                       >
                         <Plus size={16} strokeWidth={2.5} className="mr-1" />
@@ -550,7 +550,7 @@ export default function OrderDetailsPage() {
                     <div className="bg-[#FFF7E6] rounded-b border-t border-[#FFD591] p-2 px-3 flex justify-between items-center">
                       <p className="font-normal text-sm text-[#8C8C8C]">Delivery by</p>
                       <p className="flex items-center gap-2 text-sm text-gray-900">
-                        <span className="font-semibold">
+                        <span className="font-normal">
                           {order.riderPickup?.riderName || "Unknown Courier"}
                         </span>
                         <Tooltip>
@@ -573,7 +573,7 @@ export default function OrderDetailsPage() {
                     <div className="bg-[#FFF7E6] rounded-b border-t border-[#FFD591] p-2 px-3 flex justify-between items-center">
                       <p className="font-normal text-sm text-[#8C8C8C]">Delivery by</p>
                       <p className="flex items-center gap-2 text-sm text-gray-900">
-                        <span className="font-semibold">
+                        <span className="font-normal">
                           {order.riderPickup?.riderName || "Unknown Courier"}
                         </span>
                         <Tooltip>
@@ -598,12 +598,12 @@ export default function OrderDetailsPage() {
 
           {/* Payment Card */}
           <Card className="rounded-md p-0 gap-0 shadow-sm border-gray-200">
-            <div className="p-4 py-3 font-semibold text-gray-900 border-b border-gray-100">Payment</div>
+            <div className="p-4 py-3 font-normal text-gray-900 border-b border-gray-100">Payment</div>
             <CardContent className="p-0">
               <div className="p-4 space-y-4 bg-[#FAFAFA] m-4 rounded border border-gray-100">
                 <div className="flex justify-between text-[15px]">
                   <span className="text-gray-600 font-medium">Subtotal</span>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-normal text-gray-900">
                     N{order.summary?.subtotal?.toLocaleString()}
                   </span>
                 </div>
@@ -611,7 +611,7 @@ export default function OrderDetailsPage() {
                   <span className="text-gray-600 font-medium">
                     Discount
                   </span>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-normal text-gray-900">
                     -N{order.summary?.discount?.toLocaleString() || 0}
                   </span>
                 </div>
@@ -619,12 +619,12 @@ export default function OrderDetailsPage() {
                   <span className="text-gray-600 font-medium">
                     Shipping or delivery
                   </span>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-normal text-gray-900">
                     N{order.summary?.deliveryFee?.toLocaleString() || 0}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-dashed border-gray-300 pt-4 mt-2">
-                  <span className="font-semibold text-gray-900">Total</span>
+                  <span className="font-normal text-gray-900">Total</span>
                   <span className="font-bold text-gray-900">
                     N{order.summary?.total?.toLocaleString()}
                   </span>
@@ -656,13 +656,13 @@ export default function OrderDetailsPage() {
             </div>
             <CardContent className="p-5 space-y-5">
               <div className="space-y-1.5">
-                <p className="font-semibold text-[15px] text-gray-900 mb-2">Customer information</p>
+                <p className="font-normal text-[15px] text-gray-900 mb-2">Customer information</p>
                 <p className="text-[14px] text-gray-700">{order.customer.name}</p>
                 <p className="text-[14px] text-[#1677FF]">{order.customer.email}</p>
                 <p className="text-[14px] text-gray-700">{order.customer.phoneNumber}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="font-semibold text-[15px] text-gray-900 mb-1">Shipping address</p>
+                <p className="font-normal text-[15px] text-gray-900 mb-1">Shipping address</p>
                 <p className="text-[14px] text-gray-700 leading-relaxed">{order.shippingAddress}</p>
               </div>
             </CardContent>
@@ -698,7 +698,7 @@ export default function OrderDetailsPage() {
                     )}
                     <div className={cn("absolute left-0 top-1 w-4 h-4 rounded-full border-[3px] border-white z-10 transition-colors duration-300", isCompleted || isActive ? "bg-[#E66B3D]" : "bg-gray-300")} />
                     <div className="flex flex-col -mt-1">
-                      <span className={cn("text-[14px] font-semibold leading-tight transition-colors mb-0.5", isCompleted || isActive ? "text-gray-900" : "text-gray-400")}>
+                      <span className={cn("text-[14px] font-normal leading-tight transition-colors mb-0.5", isCompleted || isActive ? "text-gray-900" : "text-gray-400")}>
                         {step.label}
                       </span>
                       {step.at && (

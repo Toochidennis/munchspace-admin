@@ -79,7 +79,7 @@ export function NotificationSettings() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <CardHeader className="px-0 flex flex-row items-center justify-between mt-5 mb-12">
         <div>
-          <CardTitle className="text-2xl font-semibold text-slate-900">
+          <CardTitle className="text-2xl font-normal text-slate-900">
             Notification Settings
           </CardTitle>
           <CardDescription className="text-slate-500 mt-1">
@@ -188,7 +188,7 @@ function NotificationAccordion({
         className="w-full flex items-center justify-between px-6 py-3 bg-white hover:bg-slate-50/50 transition-all text-left group"
       >
         <div>
-          <CardTitle className="text-lg font-semibold text-slate-900">
+          <CardTitle className="text-lg font-normal text-slate-900">
             {title}
           </CardTitle>
           <CardDescription className="text-sm mt-1 text-slate-500">
@@ -210,11 +210,11 @@ function NotificationAccordion({
           <Table>
             <TableHeader className="bg-gray-100 border-b">
               <TableRow className="hover:bg-transparent border-none">
-                <TableHead className="text-sm border-r-2 font-semibold tracking-widest h-12 px-6">
+                <TableHead className="text-sm border-r-2 font-normal tracking-widest h-12 px-6">
                   Updates
                 </TableHead>
                 {channels.map((channel) => (
-                  <TableHead key={channel} className="text-sm font-semibold capitalize tracking-widest h-12 px-6">
+                  <TableHead key={channel} className="text-sm font-normal capitalize tracking-widest h-12 px-6">
                     {channel}
                   </TableHead>
                 ))}
@@ -226,10 +226,10 @@ function NotificationAccordion({
                   key={item.key}
                   className="hover:bg-slate-50/30 border-none last:border-0 h-13"
                 >
-                  <TableCell className="px-6 font-semibold border-r-2 text-slate-700 text-sm w-2/4">
+                  <TableCell className="px-6 font-normal border-r-2 text-slate-700 text-sm w-2/4">
                     {item.label}
                     {item.isCritical && (
-                      <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-semibold">CRITICAL</span>
+                      <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-normal">CRITICAL</span>
                     )}
                   </TableCell>
                   {channels.map((channel) => {

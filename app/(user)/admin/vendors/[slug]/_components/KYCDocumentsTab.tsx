@@ -245,7 +245,7 @@ export default function KYCDocumentsTab({ businessId }: { businessId?: string })
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-semibold rounded-md whitespace-nowrap flex-shrink-0"
+                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-normal rounded-md whitespace-nowrap flex-shrink-0"
                 onClick={() => handleOpenModal(doc)}
               >
                 Mark document as...
@@ -366,7 +366,7 @@ export default function KYCDocumentsTab({ businessId }: { businessId?: string })
 
           {actionValue === "Reject" && (
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold text-gray-700">
+              <Label className="text-sm font-normal text-gray-700">
                 Message to Vendor <span className="text-red-500">*</span>
               </Label>
               <Textarea
@@ -390,7 +390,7 @@ export default function KYCDocumentsTab({ businessId }: { businessId?: string })
           )}
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-semibold text-gray-700">
+            <Label className="text-sm font-normal text-gray-700">
               Internal Note <span className="text-red-500">*</span>
             </Label>
             <Textarea

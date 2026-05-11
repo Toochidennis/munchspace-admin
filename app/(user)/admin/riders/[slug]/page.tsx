@@ -290,7 +290,7 @@ export default function RiderDetailsPage() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="gap-2 border-gray-200 text-gray-600 font-semibold h-10 px-5 rounded-lg hover:bg-gray-50"
+                  className="gap-2 border-gray-200 text-gray-600 font-normal h-10 px-5 rounded-lg hover:bg-gray-50"
                 >
                   More Actions <MoreHorizontal size={16} />
                 </Button>

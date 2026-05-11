@@ -599,7 +599,7 @@ export const OrdersView = ({ range = "last_30_days", refreshTrigger = 0 }: { ran
                           fill="white"
                           textAnchor="middle"
                           dominantBaseline="central"
-                          className="text-lg font-semibold"
+                          className="text-lg font-normal"
                         >
                           {`${value}%`}
                         </text>
@@ -634,7 +634,7 @@ export const OrdersView = ({ range = "last_30_days", refreshTrigger = 0 }: { ran
                           : "Incomplete Orders"}
                       </span>
                     </div>
-                    <span className="text-lg font-semibold text-gray-900">
+                    <span className="text-lg font-normal text-gray-900">
                       {item.value}%
                     </span>
                   </div>
@@ -648,7 +648,7 @@ export const OrdersView = ({ range = "last_30_days", refreshTrigger = 0 }: { ran
       <Card className="border-none shadow-sm rounded-md overflow-hidden bg-white">
         <CardHeader className="border-b py-6 px-4 space-y-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">
+            <CardTitle className="text-lg font-normal">
               Orders ({tableDataLength})
             </CardTitle>
             <div className="flex gap-2">
@@ -1045,7 +1045,7 @@ export const OrdersView = ({ range = "last_30_days", refreshTrigger = 0 }: { ran
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-semibold text-gray-900">
+                                <p className="text-sm font-normal text-gray-900">
                                   {p.price}
                                 </p>
                                 <p className="text-[11px] text-gray-400 mt-1 font-bold">

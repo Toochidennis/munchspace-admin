@@ -427,21 +427,21 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
           >
             <DropdownMenuItem
               onClick={() => setIsNotifyOpen(true)}
-              className="gap-3 py-3 text-xs font-semibold cursor-pointer"
+              className="gap-3 py-3 text-xs font-normal cursor-pointer"
             >
               <Mail size={16} className="text-slate-500" /> Notify Customer...
             </DropdownMenuItem>
             {customer?.isActive ? (
               <DropdownMenuItem
                 onClick={() => setIsSuspendOpen(true)}
-                className="gap-3 py-3 text-xs font-semibold text-red-600 border-t border-slate-50 cursor-pointer focus:text-red-700"
+                className="gap-3 py-3 text-xs font-normal text-red-600 border-t border-slate-50 cursor-pointer focus:text-red-700"
               >
                 <AlertCircle size={16} /> Suspend Customer
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
                 onClick={handleUnsuspend}
-                className="gap-3 py-3 text-xs font-semibold text-green-600 border-t border-slate-50 cursor-pointer focus:text-green-700"
+                className="gap-3 py-3 text-xs font-normal text-green-600 border-t border-slate-50 cursor-pointer focus:text-green-700"
               >
                 <CheckCircle2 size={16} /> Unsuspend Customer
               </DropdownMenuItem>

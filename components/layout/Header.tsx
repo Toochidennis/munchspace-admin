@@ -116,7 +116,7 @@ const Header = ({ title }: { title: string; }) => {
                           </div>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-[13.5px] font-semibold text-slate-900 leading-tight">
+                              <p className="text-[13.5px] font-normal text-slate-900 leading-tight">
                                 {notif.label}
                               </p>
                               {notif.isCritical && (
@@ -150,7 +150,7 @@ const Header = ({ title }: { title: string; }) => {
                 )}
               </div>
               <div className="p-3 border-t border-slate-100 text-center bg-slate-50/30">
-                <button className="text-[12px] font-semibold text-[#E86B35] hover:text-[#d45a2a] transition-colors">
+                <button className="text-[12px] font-normal text-[#E86B35] hover:text-[#d45a2a] transition-colors">
                   View Notification Settings
                 </button>
               </div>

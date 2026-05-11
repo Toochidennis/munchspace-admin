@@ -26,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 // Separate Tab Components
@@ -66,6 +67,9 @@ export default function VendorDetailsPage() {
   const [isNotifyModalOpen, setIsNotifyModalOpen] = React.useState(false);
   const [notifyMessage, setNotifyMessage] = React.useState("");
   const [isSendingNotify, setIsSendingNotify] = React.useState(false);
+
+  // Impersonate State
+  const [isImpersonating, setIsImpersonating] = React.useState(false);
 
   React.useEffect(() => {
     const fetchVendorDetails = async () => {
@@ -132,10 +136,60 @@ export default function VendorDetailsPage() {
     }
   };
 
+  const handleImpersonate = async () => {
+    try {
+      setIsImpersonating(true);
+      const res = await authenticatedFetch(`/admin/vendors/${vendorData?.vendor?.id}/impersonate`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const result = await parseApiResponse(res);
+      console.log(result)
+
+      if (result?.success) {
+        const { accessToken, vendorId, vendorName } = result.data;
+        const impersonateUrl = `https://vendor.munchspace.io/impersonate?accessToken=${accessToken}&vendorId=${vendorId}&vendorName=${encodeURIComponent(vendorName)}`;
+        window.open(impersonateUrl, '_blank');
+        setIsAccessModalOpen(false);
+      } else {
+        toast.error(result?.message || "Failed to access vendor account");
+      }
+    } catch (err) {
+      toast.error("An error occurred while trying to access vendor account");
+    } finally {
+      setIsImpersonating(false);
+    }
+  };
+
+
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-[#E86B35]" />
+      <div className="bg-white">
+        <div className="max-w-[1200px] mx-auto pt-8 px-6 pb-20">
+          <Skeleton className="w-48 h-5 mb-6" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-4">
+              <Skeleton className="w-20 h-20 rounded-full" />
+              <div className="space-y-3">
+                <Skeleton className="w-64 h-8" />
+                <Skeleton className="w-40 h-4" />
+              </div>
+            </div>
+            <Skeleton className="w-36 h-10 rounded-lg" />
+          </div>
+          <div className="flex items-center gap-8 border-b border-gray-200 mb-8 pb-3">
+            <Skeleton className="w-16 h-4" />
+            <Skeleton className="w-16 h-4" />
+            <Skeleton className="w-16 h-4" />
+            <Skeleton className="w-16 h-4" />
+            <Skeleton className="w-24 h-4" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Skeleton className="h-[200px] rounded-xl" />
+            <Skeleton className="h-[200px] rounded-xl" />
+            <Skeleton className="h-[200px] rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -152,8 +206,7 @@ export default function VendorDetailsPage() {
   const { vendor, businessInfo } = vendorData;
 
   return (
-    /* YOUR REQUESTED SCROLL LOGIC */
-    <div className="h-screen overflow-y-auto bg-white">
+    <div className="bg-white">
       <div className="max-w-[1200px] mx-auto pt-8 px-6 pb-20">
         {/* Breadcrumb */}
         <button
@@ -175,7 +228,7 @@ export default function VendorDetailsPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-gray-400 font-semibold text-xl">
+                <span className="text-gray-400 font-normal text-xl">
                   {(businessInfo?.displayName || businessInfo?.legalName || "?").charAt(0).toUpperCase()}
                 </span>
               )}
@@ -187,7 +240,7 @@ export default function VendorDetailsPage() {
                 </h1>
                 <Badge 
                   className={cn(
-                    "border-none px-3 py-0.5 text-[10px] font-semibold uppercase",
+                    "border-none px-3 py-0.5 text-[10px] font-normal uppercase",
                     businessInfo?.status?.state === "ACTIVE" ? "bg-[#EBFBF0] text-[#22C55E]" : 
                     businessInfo?.status?.state === "PENDING_REVIEW" ? "bg-yellow-100 text-yellow-700" :
                     businessInfo?.status?.state === "REJECTED" ? "bg-red-100 text-red-700" :
@@ -210,7 +263,7 @@ export default function VendorDetailsPage() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="gap-2 border-gray-200 text-gray-700 font-semibold h-10 px-5 rounded-lg"
+                  className="gap-2 border-gray-200 text-gray-700 font-normal h-10 px-5 rounded-lg"
                 >
                   More Actions <ChevronDown size={16} />
                 </Button>
@@ -256,7 +309,7 @@ export default function VendorDetailsPage() {
         </div>
 
         {/* Tabs Navigation */}
-        <div className="flex items-center gap-8 border-b border-gray-200 mb-8 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-8 border-b border-gray-200 mb-8 overflow-x-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -288,11 +341,6 @@ export default function VendorDetailsPage() {
         </div>
       </div>
 
-      {/* <AccessAccountModal
-        isOpen={isAccessModalOpen}
-        onClose={() => setIsAccessModalOpen(false)}
-        vendorName="Sushi Place"
-      /> */}
       <AccessAccountModal
         isOpen={isAccessModalOpen}
         onClose={() => setIsAccessModalOpen(false)}
@@ -306,8 +354,19 @@ export default function VendorDetailsPage() {
             >
               Cancel
             </Button>
-            <Button className="bg-munchprimary hover:bg-munchprimaryDark text-white px-6 rounded h-10">
-              Yes , confirm
+            <Button 
+              className="bg-[#E86B35] hover:bg-[#d15d2c] text-white px-6 rounded h-10 min-w-[120px]"
+              onClick={handleImpersonate}
+              disabled={isImpersonating}
+            >
+              {isImpersonating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Accessing...
+                </>
+              ) : (
+                "Yes, confirm"
+              )}
             </Button>
           </>
         }
@@ -315,7 +374,7 @@ export default function VendorDetailsPage() {
         <div className="space-y-6">
           <div className="space-y-3">
             <p className="text-gray-700">
-              Are you sure you want to access Sushi Place's account? All actions
+              Are you sure you want to access <span className="font-normal">{businessInfo?.displayName || businessInfo?.legalName}</span>'s account? All actions
               will be recorded in the activity log.
             </p>
           </div>
@@ -382,7 +441,7 @@ export default function VendorDetailsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-semibold text-gray-700">
+            <Label className="text-sm font-normal text-gray-700">
               Internal Note <span className="text-red-500">*</span>
             </Label>
             <Textarea
