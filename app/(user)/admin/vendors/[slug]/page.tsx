@@ -139,7 +139,7 @@ export default function VendorDetailsPage() {
   const handleImpersonate = async () => {
     try {
       setIsImpersonating(true);
-      const res = await authenticatedFetch(`/admin/vendors/${vendorData?.vendor?.id}/impersonate`, {
+      const res = await authenticatedFetch(`/admin/vendors/${vendorData?.businessInfo?.id}/impersonate`, {
         method: "POST",
         body: JSON.stringify({}),
       });
@@ -147,8 +147,8 @@ export default function VendorDetailsPage() {
       console.log(result)
 
       if (result?.success) {
-        const { accessToken, vendorId, vendorName } = result.data;
-        const impersonateUrl = `https://vendor.munchspace.io/impersonate?accessToken=${accessToken}&vendorId=${vendorId}&vendorName=${encodeURIComponent(vendorName)}`;
+        const { accessToken, businessId, vendorName } = result.data;
+        const impersonateUrl = `https://vendor.munchspace.io/impersonate?accessToken=${accessToken}&businessId=${businessId}&vendorName=${encodeURIComponent(vendorName)}`;
         window.open(impersonateUrl, '_blank');
         setIsAccessModalOpen(false);
       } else {
