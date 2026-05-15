@@ -14,9 +14,10 @@ import {
   AlertCircle,
   X,
   Calendar as CalendarIcon,
-  Loader2,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ import Link from "next/link";
 
 interface ApiCustomer {
   id: string;
+  code: string;
   fullName: string;
   email: string;
   createdAt: string;
@@ -148,6 +150,7 @@ export default function CustomersPage() {
   const [suspendNote, setSuspendNote] = React.useState("");
   const [customerToSuspend, setCustomerToSuspend] = React.useState<ApiCustomer | null>(null);
   const [isSuspending, setIsSuspending] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   // Debounce search
   React.useEffect(() => {
@@ -188,6 +191,25 @@ export default function CustomersPage() {
       setError("An error occurred while fetching customers.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleExportCustomers = async () => {
+    setIsExporting(true);
+    try {
+      const res = await authenticatedFetch("/admin/exports/customers", {
+        method: "GET",
+      });
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success) {
+        toast.success(apiRes.data?.message || "Export queued. You will receive an email shortly.");
+      } else {
+        toast.error(apiRes?.message || "Failed to start export");
+      }
+    } catch (err) {
+      toast.error("An error occurred during export");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -323,9 +345,7 @@ export default function CustomersPage() {
             <div className="flex justify-between items-center">
               <h1 className="text-xl font-bold text-slate-900">
                 {isLoading ? (
-                  <span className="flex items-center gap-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                  </span>
+                  <Skeleton className="h-7 w-32" />
                 ) : (
                   `Total (${totalCustomers})`
                 )}
@@ -384,8 +404,15 @@ export default function CustomersPage() {
                     <Button
                       variant="outline"
                       className="h-10 text-xs font-normal border-slate-200 text-slate-600 gap-2 shadow-none"
+                      onClick={handleExportCustomers}
+                      disabled={isExporting}
                     >
-                      <Download size={14} /> Download
+                      {isExporting ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Download size={14} />
+                      )}
+                      {isExporting ? "Exporting..." : "Download"}
                     </Button>
                     <Button
                       variant={isFilterOpen ? "default" : "outline"}
@@ -552,6 +579,7 @@ export default function CustomersPage() {
                             className="border-slate-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                           />
                         </th>
+                        <th className="p-4 border-r border-slate-100 whitespace-nowrap">Customer Id</th>
                         <th className="p-4 border-r border-slate-100 whitespace-nowrap">Customer Email</th>
                         <th className="p-4 border-r border-slate-100 whitespace-nowrap">Reg. Date</th>
                         <th className="p-4 border-r border-slate-100 whitespace-nowrap">Total Order</th>
@@ -560,98 +588,127 @@ export default function CustomersPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {customers.map((c) => (
-                        <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4 border-r border-slate-100">
-                            <Checkbox
-                              checked={selectedCustomerIds.includes(c.id)}
-                              onCheckedChange={() => toggleSelect(c.id)}
-                              className="border-slate-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
-                            />
-                          </td>
-                          <td className="p-4 border-r border-slate-100 text-slate-600 font-medium">
-                            <div className="max-w-[180px] truncate" title={c.email}>
-                              {c.email}
-                            </div>
-                          </td>
-                          <td className="p-4 border-r border-slate-100 text-slate-600 font-medium">
-                            <div className="max-w-[180px] truncate">
-                              {format(new Date(c.createdAt), "EEE MMM dd yyyy HH:mm:ss")}...
-                            </div>
-                          </td>
-                          <td className="p-4 border-r border-slate-100 text-slate-600 font-medium">
-                            {c.totalCompletedOrders}
-                          </td>
-                          <td className="p-4 border-r border-slate-100">
-                            <span
-                              className={cn(
-                                "font-bold px-3 py-1 rounded-[4px] text-[10px] uppercase text-white shadow-sm inline-block",
-                                c.status?.isActive
-                                  ? "bg-[#50C828]"
-                                  : "bg-red-500"
-                              )}
-                            >
-                              {c.status?.isActive ? "ACTIVE" : "SUSPENDED"}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 hover:bg-slate-100"
+                      {isLoading
+                        ? Array.from({ length: 8 }).map((_, i) => (
+                            <tr key={i} className="border-b border-slate-50">
+                              <td className="p-4 border-r border-slate-100">
+                                <Skeleton className="h-4 w-4 rounded" />
+                              </td>
+                              <td className="p-4 border-r border-slate-100">
+                                <Skeleton className="h-4 w-24" />
+                              </td>
+                              <td className="p-4 border-r border-slate-100">
+                                <Skeleton className="h-4 w-40" />
+                              </td>
+                              <td className="p-4 border-r border-slate-100">
+                                <Skeleton className="h-4 w-32" />
+                              </td>
+                              <td className="p-4 border-r border-slate-100">
+                                <Skeleton className="h-4 w-8" />
+                              </td>
+                              <td className="p-4 border-r border-slate-100">
+                                <Skeleton className="h-6 w-16 rounded" />
+                              </td>
+                              <td className="p-4 text-center">
+                                <Skeleton className="h-8 w-8 rounded mx-auto" />
+                              </td>
+                            </tr>
+                          ))
+                        : customers.map((c) => (
+                            <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-4 border-r border-slate-100">
+                                <Checkbox
+                                  checked={selectedCustomerIds.includes(c.id)}
+                                  onCheckedChange={() => toggleSelect(c.id)}
+                                  className="border-slate-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
+                                />
+                              </td>
+                              <td className="p-4 border-r border-slate-100 font-mono text-xs text-slate-500">
+                                {c.code}
+                              </td>
+                              <td className="p-4 border-r border-slate-100 text-slate-600 font-medium">
+                                <div className="max-w-[180px] truncate" title={c.email}>
+                                  {c.email}
+                                </div>
+                              </td>
+                              <td className="p-4 border-r border-slate-100 text-slate-600 font-medium">
+                                <div className="max-w-[180px] truncate">
+                                  {format(new Date(c.createdAt), "EEE MMM dd yyyy HH:mm:ss")}...
+                                </div>
+                              </td>
+                              <td className="p-4 border-r border-slate-100 text-slate-600 font-medium">
+                                {c.totalCompletedOrders}
+                              </td>
+                              <td className="p-4 border-r border-slate-100">
+                                <span
+                                  className={cn(
+                                    "font-bold px-3 py-1 rounded-[4px] text-[10px] uppercase text-white shadow-sm inline-block",
+                                    c.status?.isActive
+                                      ? "bg-[#50C828]"
+                                      : "bg-red-500"
+                                  )}
                                 >
-                                  <MoreHorizontal size={16} className="text-slate-500" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="w-48 p-1 rounded-lg shadow-xl"
-                              >
-                                <DropdownMenuItem asChild className="gap-2 text-xs py-2.5 font-normal cursor-pointer">
-                                  <Link href={`/admin/customers/${c.id}`}>
-                                    <Eye size={14} /> View Details
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedCustomer(c);
-                                    setShowNotifyModal(true);
-                                  }}
-                                  className="gap-2 text-xs py-2.5 font-normal cursor-pointer"
-                                >
-                                  <Mail size={14} /> Notify Customer...
-                                </DropdownMenuItem>
-                                
-                                {c.status?.isActive ? (
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setCustomerToSuspend(c);
-                                      setSuspendReason("");
-                                      setSuspendNote("");
-                                      setShowSuspendModal(true);
-                                    }}
-                                    className="gap-2 text-xs py-2.5 font-normal text-red-600 border-t cursor-pointer focus:text-red-700"
+                                  {c.status?.isActive ? "ACTIVE" : "SUSPENDED"}
+                                </span>
+                              </td>
+                              <td className="p-4 text-center">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 hover:bg-slate-100"
+                                    >
+                                      <MoreHorizontal size={16} className="text-slate-500" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-48 p-1 rounded-lg shadow-xl"
                                   >
-                                    <AlertCircle size={14} /> Suspend Customer
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onClick={() => handleUnsuspend(c.id)}
-                                    className="gap-2 text-xs py-2.5 font-normal text-green-600 border-t cursor-pointer focus:text-green-700"
-                                  >
-                                    <CheckCircle2 size={14} /> Unsuspend Customer
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
+                                    <DropdownMenuItem asChild className="gap-2 text-xs py-2.5 font-normal cursor-pointer">
+                                      <Link href={`/admin/customers/${c.id}`}>
+                                        <Eye size={14} /> View Details
+                                      </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedCustomer(c);
+                                        setShowNotifyModal(true);
+                                      }}
+                                      className="gap-2 text-xs py-2.5 font-normal cursor-pointer"
+                                    >
+                                      <Mail size={14} /> Notify Customer...
+                                    </DropdownMenuItem>
+                                    
+                                    {c.status?.isActive ? (
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setCustomerToSuspend(c);
+                                          setSuspendReason("");
+                                          setSuspendNote("");
+                                          setShowSuspendModal(true);
+                                        }}
+                                        className="gap-2 text-xs py-2.5 font-normal text-red-600 border-t cursor-pointer focus:text-red-700"
+                                      >
+                                        <AlertCircle size={14} /> Suspend Customer
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        onClick={() => handleUnsuspend(c.id)}
+                                        className="gap-2 text-xs py-2.5 font-normal text-green-600 border-t cursor-pointer focus:text-green-700"
+                                      >
+                                        <CheckCircle2 size={14} /> Unsuspend Customer
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </td>
+                            </tr>
+                          ))}
                       {customers.length === 0 && !isLoading && (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-500 font-medium">
+                          <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
                             No customers found.
                           </td>
                         </tr>

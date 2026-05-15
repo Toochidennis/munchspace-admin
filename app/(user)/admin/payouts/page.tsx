@@ -144,6 +144,7 @@ export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [statusGroups, setStatusGroups] = useState<StatusGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Filters
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -199,6 +200,25 @@ export default function PayoutsPage() {
       setIsLoading(false);
     }
   }, [currentPage, pageSize, selectedRange, activeStatusTab, ownerTypeFilter, searchQuery, startDate, endDate]);
+
+  const handleExportPayouts = async () => {
+    setIsExporting(true);
+    try {
+      const res = await authenticatedFetch("/admin/exports/payouts", {
+        method: "GET",
+      });
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success) {
+        toast.success(apiRes.data?.message || "Export queued. You will receive an email shortly.");
+      } else {
+        toast.error(apiRes?.message || "Failed to start export");
+      }
+    } catch (err) {
+      toast.error("An error occurred during export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
@@ -334,8 +354,18 @@ export default function PayoutsPage() {
                 />
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" className="h-10 border-gray-200 text-gray-600 font-medium">
-                  <Download className="mr-2 h-4 w-4 text-gray-400" /> Download
+                <Button 
+                  variant="outline" 
+                  className="h-10 border-gray-200 text-gray-600 font-medium"
+                  onClick={handleExportPayouts}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4 text-gray-400" />
+                  )}
+                  {isExporting ? "Exporting..." : "Download"}
                 </Button>
                 <Button
                   variant={isFilterOpen ? "default" : "outline"}

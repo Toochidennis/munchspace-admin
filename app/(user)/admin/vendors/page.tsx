@@ -16,10 +16,11 @@ import {
   Mail,
   Ban,
   UserCheck,
-  Loader2,
   Pause,
   Play,
+  Loader2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 
 // --- DATA TYPES ---
 interface ApiVendor {
+  vendorCode: string;
   id: string; 
   vendorId: string;
   legalName: string;
@@ -104,7 +106,7 @@ export default function VendorsPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
-  const [dateRange, setDateRange] = React.useState<string>("");
+  const [dateRange, setDateRange] = React.useState<string>("last_30_days");
   const [startDate, setStartDate] = React.useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = React.useState<Date | undefined>(undefined);
 
@@ -122,6 +124,7 @@ export default function VendorsPage() {
     SUSPENDED: 0,
     DEACTIVATED: 0,
   });
+  const [isExporting, setIsExporting] = React.useState(false);
   const [totalVendors, setTotalVendors] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -192,17 +195,18 @@ export default function VendorsPage() {
       if (debouncedSearch) {
         params.append("search", debouncedSearch);
       }
-      if (startDate) {
+      if (startDate && endDate) {
         params.append("startDate", startDate.toISOString());
-      }
-      if (endDate) {
         params.append("endDate", endDate.toISOString());
+      } else if (dateRange) {
+        params.append("range", dateRange);
       }
 
       const res = await authenticatedFetch(
         `/admin/businesses?${params.toString()}`,
       );
       const apiRes = await parseApiResponse(res);
+      console.log("apiRes", apiRes)
 
       if (apiRes?.success) {
         setVendors(apiRes.data.data || []);
@@ -231,6 +235,7 @@ export default function VendorsPage() {
     itemsPerPage,
     activeTab,
     debouncedSearch,
+    dateRange,
     startDate,
     endDate,
   ]);
@@ -314,6 +319,25 @@ export default function VendorsPage() {
     }
   };
 
+  const handleExportVendors = async () => {
+    setIsExporting(true);
+    try {
+      const res = await authenticatedFetch("/admin/exports/vendors", {
+        method: "GET",
+      });
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success) {
+        toast.success(apiRes.data?.message || "Export queued. You will receive an email shortly.");
+      } else {
+        toast.error(apiRes?.message || "Failed to start export");
+      }
+    } catch (err) {
+      toast.error("An error occurred during export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Handle Tab Change
   const handleTabChange = (val: string) => {
     setActiveTab(val);
@@ -347,9 +371,7 @@ export default function VendorsPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">
             {isLoading ? (
-              <span className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-              </span>
+              <Skeleton className="h-7 w-32" />
             ) : (
               `Total (${totalStatusCount})`
             )}
@@ -373,17 +395,25 @@ export default function VendorsPage() {
                 setDateRange(val === "all" ? "" : val);
                 setStartDate(undefined);
                 setEndDate(undefined);
+                setCurrentPage(1);
               }}
             >
               <SelectTrigger className="w-[180px] h-10 bg-white border-gray-200 text-gray-600 font-medium">
                 <CalendarIcon size={16} className="mr-2 text-gray-400" />
-                <SelectValue placeholder="All time" />
+                <SelectValue placeholder="Last 30 days" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All time</SelectItem>
                 <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                <SelectItem value="last_week">Last week</SelectItem>
+                <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                <SelectItem value="last_90_days">Last 90 days</SelectItem>
+                <SelectItem value="last_6_months">Last 6 months</SelectItem>
+                <SelectItem value="this_month">This month</SelectItem>
+                <SelectItem value="last_month">Last month</SelectItem>
+                <SelectItem value="this_year">This year</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -411,8 +441,15 @@ export default function VendorsPage() {
               <Button
                 variant="outline"
                 className="h-11 border-gray-200 text-gray-600 font-medium gap-2 px-5 shadow-none"
+                onClick={handleExportVendors}
+                disabled={isExporting}
               >
-                <Download size={18} /> Download
+                {isExporting ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Download size={18} />
+                )}
+                {isExporting ? "Exporting..." : "Download"}
               </Button>
               <Button
                 variant={isFilterOpen ? "default" : "outline"}
@@ -428,9 +465,9 @@ export default function VendorsPage() {
             </div>
           </div>
 
-          {/* Date Picker Row (If filter open) */}
+          {/* Filter Row */}
           {isFilterOpen && (
-            <div className="flex flex-wrap gap-3 items-center py-2 border-b border-gray-100">
+            <div className="flex flex-wrap gap-3 items-center py-2 border-b border-gray-100 animate-in slide-in-from-top-2 fade-in duration-200">
               <div className="flex items-center gap-2 px-3 h-9 bg-gray-50 border border-gray-100 rounded-md text-xs font-normal text-gray-600">
                 <Filter size={14} /> Custom Date
               </div>
@@ -439,7 +476,7 @@ export default function VendorsPage() {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-[200px] h-9 text-xs justify-start shadow-none border-gray-200"
+                    className="w-[180px] h-9 text-xs justify-start shadow-none border-gray-200"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
                     {startDate ? format(startDate, "dd/MM/yyyy") : "Start date"}
@@ -452,6 +489,7 @@ export default function VendorsPage() {
                     onSelect={(d) => {
                       setStartDate(d);
                       setDateRange("");
+                      setCurrentPage(1);
                     }}
                     initialFocus
                   />
@@ -462,7 +500,7 @@ export default function VendorsPage() {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="w-[200px] h-9 text-xs justify-start shadow-none border-gray-200"
+                    className="w-[180px] h-9 text-xs justify-start shadow-none border-gray-200"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
                     {endDate ? format(endDate, "dd/MM/yyyy") : "End date"}
@@ -475,11 +513,27 @@ export default function VendorsPage() {
                     onSelect={(d) => {
                       setEndDate(d);
                       setDateRange("");
+                      setCurrentPage(1);
                     }}
                     initialFocus
                   />
                 </PopoverContent>
               </Popover>
+
+              <Button
+                variant="ghost"
+                className="text-gray-500 text-xs font-medium hover:text-gray-900 h-9"
+                onClick={() => {
+                  setDateRange("last_30_days");
+                  setStartDate(undefined);
+                  setEndDate(undefined);
+                  setSearchQuery("");
+                  setActiveTab("all");
+                  setCurrentPage(1);
+                }}
+              >
+                Reset all filters
+              </Button>
             </div>
           )}
 
@@ -574,6 +628,9 @@ export default function VendorsPage() {
                     />
                   </th>
                   <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
+                    Vendor Code
+                  </th>
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
                     Vendor Name
                   </th>
                   <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
@@ -589,151 +646,178 @@ export default function VendorsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {vendors.map((vendor) => (
-                  <tr
-                    key={vendor.id}
-                    className="hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="p-4 border-r border-gray-100">
-                      <Checkbox
-                        checked={selectedVendors.includes(vendor.vendorId)}
-                        onCheckedChange={() =>
-                          setSelectedVendors((prev) =>
-                            prev.includes(vendor.vendorId)
-                              ? prev.filter((i) => i !== vendor.vendorId)
-                              : [...prev, vendor.vendorId],
-                          )
-                        }
-                        className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
-                      />
-                    </td>
-                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
-                      <div className="flex flex-col">
-                        <span>{vendor.displayName || vendor.legalName}</span>
-                        <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">
-                          {vendor.legalName}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-gray-500 border-r border-gray-100 whitespace-nowrap">
-                      {format(
-                        new Date(vendor.createdAt),
-                        "do MMM yyyy, h:mm a",
-                      )}
-                    </td>
-                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
-                      {vendor.menuItemsCount}
-                    </td>
-                    <td className="p-4 border-r border-gray-100">
-                      <span
-                        className={cn(
-                          "px-2.5 py-1 rounded text-[10px] uppercase font-bold text-white inline-block",
-                          vendor.status === "ACTIVE"
-                            ? "bg-[#50C828]"
-                            : vendor.status === "PENDING_REVIEW"
-                              ? "bg-yellow-500"
-                              : vendor.status === "REJECTED"
-                                ? "bg-red-500"
-                                : vendor.status === "DEACTIVATED"
-                                  ? "bg-gray-500"
-                                  : vendor.status === "SUSPENDED"
-                                    ? "bg-red-600"
-                                    : "bg-blue-500", // ONBOARDING
-                        )}
+                {isLoading
+                  ? Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="p-4 border-r border-gray-100">
+                          <Skeleton className="h-4 w-4 rounded" />
+                        </td>
+                        <td className="p-4 border-r border-gray-100">
+                          <Skeleton className="h-4 w-16" />
+                        </td>
+                        <td className="p-4 border-r border-gray-100">
+                          <div className="flex flex-col gap-1.5">
+                            <Skeleton className="h-4 w-36" />
+                            <Skeleton className="h-3 w-24" />
+                          </div>
+                        </td>
+                        <td className="p-4 border-r border-gray-100">
+                          <Skeleton className="h-4 w-32" />
+                        </td>
+                        <td className="p-4 border-r border-gray-100">
+                          <Skeleton className="h-4 w-8" />
+                        </td>
+                        <td className="p-4 border-r border-gray-100">
+                          <Skeleton className="h-6 w-20 rounded" />
+                        </td>
+                        <td className="p-4 text-center">
+                          <Skeleton className="h-8 w-8 rounded mx-auto" />
+                        </td>
+                      </tr>
+                    ))
+                  : vendors.map((vendor) => (
+                      <tr
+                        key={vendor.id}
+                        className="hover:bg-gray-50/50 transition-colors"
                       >
-                        {vendor.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-gray-900"
-                          >
-                            <MoreHorizontal size={20} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-52 p-1.5 shadow-lg border-gray-100 rounded-lg"
-                        >
-                          <DropdownMenuItem
-                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
-                            onClick={() =>
-                              router.push(`/admin/vendors/${vendor.id}`)
-                            }
-                          >
-                            <Eye size={16} className="text-gray-400" /> View
-                            Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
-                            onClick={() => {
-                              setSelectedVendorForAction(vendor.vendorId);
-                              setSelectedVendorStatusKey("");
-                              setVendorStatusReason("");
-                              setMarkVendorAsOpen(true);
-                            }}
-                          >
-                            <UserCheck size={16} className="text-gray-400" />{" "}
-                            Mark Vendor as...
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
-                            onClick={() => {
-                              setSelectedVendorForAction(vendor.vendorId);
-                              setCustomMessage("");
-                              setShowNotifyModal(true);
-                            }}
-                          >
-                            <Mail size={16} className="text-gray-400" /> Notify
-                            Vendor...
-                          </DropdownMenuItem>
-
-                          {vendor.status === "SUSPENDED" ? (
-                            <DropdownMenuItem
-                              className="gap-3 py-2.5 font-medium text-xs text-blue-600 border-t border-gray-50 mt-1 focus:bg-blue-50 cursor-pointer"
-                              onClick={() =>
-                                openVendorActionModal(
-                                  vendor.vendorId,
-                                  "unsuspend",
-                                )
-                              }
-                            >
-                              <Play size={16} /> Unsuspend Vendor
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              className="gap-3 py-2.5 font-medium text-xs text-orange-600 border-t border-gray-50 mt-1 focus:bg-orange-50 cursor-pointer"
-                              onClick={() =>
-                                openVendorActionModal(
-                                  vendor.vendorId,
-                                  "suspend",
-                                )
-                              }
-                            >
-                              <Pause size={16} /> Suspend Vendor
-                            </DropdownMenuItem>
-                          )}
-
-                          <DropdownMenuItem
-                            className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50 cursor-pointer"
-                            onClick={() =>
-                              openVendorActionModal(
-                                vendor.vendorId,
-                                "deactivate",
+                        <td className="p-4 border-r border-gray-100">
+                          <Checkbox
+                            checked={selectedVendors.includes(vendor.vendorId)}
+                            onCheckedChange={() =>
+                              setSelectedVendors((prev) =>
+                                prev.includes(vendor.vendorId)
+                                  ? prev.filter((i) => i !== vendor.vendorId)
+                                  : [...prev, vendor.vendorId],
                               )
                             }
+                            className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
+                          />
+                        </td>
+                        <td className="p-4 text-gray-600 font-medium border-r border-gray-100 whitespace-nowrap">
+                          {vendor.vendorCode || "—"}
+                        </td>
+                        <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
+                          {vendor.displayName || vendor.legalName}
+                        </td>
+                        <td className="p-4 text-gray-500 border-r border-gray-100 whitespace-nowrap">
+                          {format(
+                            new Date(vendor.createdAt),
+                            "do MMM yyyy, h:mm a",
+                          )}
+                        </td>
+                        <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
+                          {vendor.menuItemsCount}
+                        </td>
+                        <td className="p-4 border-r border-gray-100">
+                          <span
+                            className={cn(
+                              "px-2.5 py-1 rounded text-[10px] uppercase font-bold text-white inline-block",
+                              vendor.status === "ACTIVE"
+                                ? "bg-[#50C828]"
+                                : vendor.status === "PENDING_REVIEW"
+                                  ? "bg-yellow-500"
+                                  : vendor.status === "REJECTED"
+                                    ? "bg-red-500"
+                                    : vendor.status === "DEACTIVATED"
+                                      ? "bg-gray-500"
+                                      : vendor.status === "SUSPENDED"
+                                        ? "bg-red-600"
+                                        : "bg-blue-500", // ONBOARDING
+                            )}
                           >
-                            <Ban size={16} /> Deactivate Vendor
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
+                            {vendor.status.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-400 hover:text-gray-900"
+                              >
+                                <MoreHorizontal size={20} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-52 p-1.5 shadow-lg border-gray-100 rounded-lg"
+                            >
+                              <DropdownMenuItem
+                                className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
+                                onClick={() =>
+                                  router.push(`/admin/vendors/${vendor.id}`)
+                                }
+                              >
+                                <Eye size={16} className="text-gray-400" /> View
+                                Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
+                                onClick={() => {
+                                  setSelectedVendorForAction(vendor.vendorId);
+                                  setSelectedVendorStatusKey("");
+                                  setVendorStatusReason("");
+                                  setMarkVendorAsOpen(true);
+                                }}
+                              >
+                                <UserCheck size={16} className="text-gray-400" />{" "}
+                                Mark Vendor as...
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
+                                onClick={() => {
+                                  setSelectedVendorForAction(vendor.vendorId);
+                                  setCustomMessage("");
+                                  setShowNotifyModal(true);
+                                }}
+                              >
+                                <Mail size={16} className="text-gray-400" /> Notify
+                                Vendor...
+                              </DropdownMenuItem>
+
+                              {vendor.status === "SUSPENDED" ? (
+                                <DropdownMenuItem
+                                  className="gap-3 py-2.5 font-medium text-xs text-blue-600 border-t border-gray-50 mt-1 focus:bg-blue-50 cursor-pointer"
+                                  onClick={() =>
+                                    openVendorActionModal(
+                                      vendor.vendorId,
+                                      "unsuspend",
+                                    )
+                                  }
+                                >
+                                  <Play size={16} /> Unsuspend Vendor
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  className="gap-3 py-2.5 font-medium text-xs text-orange-600 border-t border-gray-50 mt-1 focus:bg-orange-50 cursor-pointer"
+                                  onClick={() =>
+                                    openVendorActionModal(
+                                      vendor.vendorId,
+                                      "suspend",
+                                    )
+                                  }
+                                >
+                                  <Pause size={16} /> Suspend Vendor
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuItem
+                                className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50 cursor-pointer"
+                                onClick={() =>
+                                  openVendorActionModal(
+                                    vendor.vendorId,
+                                    "deactivate",
+                                  )
+                                }
+                              >
+                                <Ban size={16} /> Deactivate Vendor
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
                 {!isLoading && vendors.length === 0 && (
                   <tr>
                     <td

@@ -75,13 +75,49 @@ export default function VendorDetailsPage() {
     const fetchVendorDetails = async () => {
       try {
         setIsLoading(true);
-        const res = await authenticatedFetch(`/admin/businesses/${slug}`);
-        const result = await parseApiResponse(res);
-        if (result?.success) {
-          setVendorData(result.data);
-        } else {
-          setError(result?.message || "Failed to load vendor details");
+
+        // Step 1: Fetch business details using the slug (business ID)
+        const businessRes = await authenticatedFetch(`/admin/businesses/${slug}`);
+        const businessResult = await parseApiResponse(businessRes);
+
+        if (!businessResult?.success) {
+          setError(businessResult?.message || "Failed to load vendor details");
+          return;
         }
+
+        const mergedData = { ...businessResult.data };
+
+        // Step 2: Use vendor.id from business response to fetch vendor profile
+        const vendorId = mergedData.vendor?.id;
+        if (vendorId) {
+          try {
+            const vendorRes = await authenticatedFetch(`/admin/vendors/${vendorId}`);
+            const vendorResult = await parseApiResponse(vendorRes);
+
+            if (vendorResult?.success && vendorResult.data) {
+              const vd = vendorResult.data;
+              // Merge vendor code, joinedAt, and business displayName
+              mergedData.vendor = {
+                ...(mergedData.vendor || {}),
+                code: vd.code,
+                joinedAt: vd.joinedAt,
+                fullName: vd.fullName,
+              };
+              // Use business displayName/logo from vendor endpoint as fallback
+              if (vd.businesses?.[0]) {
+                mergedData.businessInfo = {
+                  ...(mergedData.businessInfo || {}),
+                  displayName: mergedData.businessInfo?.displayName || vd.businesses[0].displayName,
+                  logoUrl: mergedData.businessInfo?.logoUrl || vd.businesses[0].logoUrl,
+                };
+              }
+            }
+          } catch {
+            // Vendor endpoint failed — continue with business data only
+          }
+        }
+
+        setVendorData(mergedData);
       } catch (err) {
         setError("An error occurred while fetching vendor details");
       } finally {
@@ -144,7 +180,6 @@ export default function VendorDetailsPage() {
         body: JSON.stringify({}),
       });
       const result = await parseApiResponse(res);
-      console.log(result)
 
       if (result?.success) {
         const { accessToken, businessId, vendorName } = result.data;
@@ -214,22 +249,25 @@ export default function VendorDetailsPage() {
           className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-6 text-sm font-medium"
         >
           <ChevronLeft size={18} />
-          Vendors / #{vendor?.id?.slice(vendor?.id?.length > 4 ? -4 : 0).toUpperCase() || slug}
+          Vendors / {vendor?.code || slug}
         </button>
 
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-gray-200 overflow-hidden border-2 border-white flex items-center justify-center">
-              {vendor?.businessLogo ? (
+              {vendor?.businessLogo || businessInfo?.logoUrl ? (
                 <img
-                  src={vendor.businessLogo}
+                  src={vendor?.businessLogo || businessInfo?.logoUrl}
                   alt={businessInfo?.displayName || businessInfo?.legalName}
                   className="w-full h-full object-cover"
+                  crossOrigin="anonymous"
                 />
               ) : (
                 <span className="text-gray-400 font-normal text-xl">
-                  {(businessInfo?.displayName || businessInfo?.legalName || "?").charAt(0).toUpperCase()}
+                  {(businessInfo?.displayName || businessInfo?.legalName || "?")
+                    .charAt(0)
+                    .toUpperCase()}
                 </span>
               )}
             </div>
@@ -238,22 +276,30 @@ export default function VendorDetailsPage() {
                 <h1 className="text-2xl font-semibold text-gray-900">
                   {businessInfo?.displayName || businessInfo?.legalName}
                 </h1>
-                <Badge 
+                <Badge
                   className={cn(
                     "border-none px-3 py-0.5 text-[10px] font-normal uppercase",
-                    businessInfo?.status?.state === "ACTIVE" ? "bg-[#EBFBF0] text-[#22C55E]" : 
-                    businessInfo?.status?.state === "PENDING_REVIEW" ? "bg-yellow-100 text-yellow-700" :
-                    businessInfo?.status?.state === "REJECTED" ? "bg-red-100 text-red-700" :
-                    businessInfo?.status?.state === "DEACTIVATED" ? "bg-gray-100 text-gray-700" :
-                    businessInfo?.status?.state === "SUSPENDED" ? "bg-red-100 text-red-600" :
-                    "bg-blue-100 text-blue-700" // ONBOARDING, DRAFT
+                    businessInfo?.status?.state === "ACTIVE"
+                      ? "bg-[#EBFBF0] text-[#22C55E]"
+                      : businessInfo?.status?.state === "PENDING_REVIEW"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : businessInfo?.status?.state === "REJECTED"
+                          ? "bg-red-100 text-red-700"
+                          : businessInfo?.status?.state === "DEACTIVATED"
+                            ? "bg-gray-100 text-gray-700"
+                            : businessInfo?.status?.state === "SUSPENDED"
+                              ? "bg-red-100 text-red-600"
+                              : "bg-blue-100 text-blue-700", // ONBOARDING, DRAFT
                   )}
                 >
                   {businessInfo?.status?.state?.replace("_", " ") || "UNKNOWN"}
                 </Badge>
               </div>
               <p className="text-sm text-gray-500 mt-1 font-medium">
-                Joined on: {vendor?.joinedAt ? format(new Date(vendor.joinedAt), "do MMM yyyy") : "Unknown"}
+                Joined on:{" "}
+                {vendor?.joinedAt
+                  ? format(new Date(vendor.joinedAt), "do MMM yyyy")
+                  : "Unknown"}
               </p>
             </div>
           </div>
@@ -272,10 +318,12 @@ export default function VendorDetailsPage() {
                 align="end"
                 className="w-56 p-1.5 shadow-lg border-gray-100 rounded-xl"
               >
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="gap-3 py-2.5 font-medium text-xs text-gray-700 cursor-pointer"
                   onClick={() => {
-                    setSelectedStatus(businessInfo?.status?.state?.toLowerCase() || "active");
+                    setSelectedStatus(
+                      businessInfo?.status?.state?.toLowerCase() || "active",
+                    );
                     setStatusReason("");
                     setStatusError("");
                     setIsStatusModalOpen(true);
@@ -284,7 +332,7 @@ export default function VendorDetailsPage() {
                   <UserCheck size={16} className="text-gray-400" /> Mark Vendor
                   as...
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="gap-3 py-2.5 font-medium text-xs text-gray-700 cursor-pointer"
                   onClick={() => {
                     setNotifyMessage("");
@@ -333,10 +381,16 @@ export default function VendorDetailsPage() {
         <div className="animate-in fade-in duration-300">
           {activeTab === "Details" && <DetailsTab data={vendorData} />}
           {activeTab === "Items" && <ItemsTab businessId={businessInfo?.id} />}
-          {activeTab === "Orders" && <OrdersTab businessId={businessInfo?.id} />}
+          {activeTab === "Orders" && (
+            <OrdersTab businessId={businessInfo?.id} />
+          )}
           {activeTab === "Remittance" && <RemittanceTab />}
-          {activeTab === "KYC documents" && <KYCDocumentsTab businessId={businessInfo?.id} />}
-          {activeTab === "Activity logs" && <ActivityLogsTab businessId={businessInfo?.id} />}
+          {activeTab === "KYC documents" && (
+            <KYCDocumentsTab businessId={businessInfo?.id} />
+          )}
+          {activeTab === "Activity logs" && (
+            <ActivityLogsTab businessId={businessInfo?.id} />
+          )}
           {/* Add more conditions as components are created */}
         </div>
       </div>
@@ -354,7 +408,7 @@ export default function VendorDetailsPage() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-[#E86B35] hover:bg-[#d15d2c] text-white px-6 rounded h-10 min-w-[120px]"
               onClick={handleImpersonate}
               disabled={isImpersonating}
@@ -374,8 +428,11 @@ export default function VendorDetailsPage() {
         <div className="space-y-6">
           <div className="space-y-3">
             <p className="text-gray-700">
-              Are you sure you want to access <span className="font-normal">{businessInfo?.displayName || businessInfo?.legalName}</span>'s account? All actions
-              will be recorded in the activity log.
+              Are you sure you want to access{" "}
+              <span className="font-normal">
+                {businessInfo?.displayName || businessInfo?.legalName}
+              </span>
+              's account? All actions will be recorded in the activity log.
             </p>
           </div>
         </div>
@@ -396,12 +453,14 @@ export default function VendorDetailsPage() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-[#E86B35] hover:bg-[#d15d2c] text-white px-6 rounded h-10 min-w-[100px]"
               onClick={handleUpdateStatus}
               disabled={isUpdatingStatus}
             >
-              {isUpdatingStatus && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {isUpdatingStatus && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
               Submit
             </Button>
           </>
@@ -410,7 +469,11 @@ export default function VendorDetailsPage() {
         <div className="space-y-6">
           <div className="space-y-4">
             <p className="text-sm text-gray-700">
-              Mark <span className="font-bold">{businessInfo?.displayName || businessInfo?.legalName}</span> as...
+              Mark{" "}
+              <span className="font-bold">
+                {businessInfo?.displayName || businessInfo?.legalName}
+              </span>{" "}
+              as...
             </p>
             <RadioGroup
               value={selectedStatus}
@@ -452,7 +515,7 @@ export default function VendorDetailsPage() {
               }}
               className={cn(
                 "min-h-[100px] border-gray-200 rounded-md focus-visible:ring-[#E86B35]",
-                statusError && "border-red-500"
+                statusError && "border-red-500",
               )}
               placeholder="Briefly explain this update..."
             />
@@ -484,7 +547,7 @@ export default function VendorDetailsPage() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-[#E86B35] hover:bg-[#d15d2c] text-white px-6 rounded h-10 min-w-[100px]"
               disabled={!notifyMessage.trim() || isSendingNotify}
               onClick={async () => {
@@ -500,7 +563,7 @@ export default function VendorDetailsPage() {
                         recipient: "vendor",
                         message: notifyMessage.trim(),
                       }),
-                    }
+                    },
                   );
                   const result = await parseApiResponse(res);
 
@@ -509,7 +572,9 @@ export default function VendorDetailsPage() {
                     setIsNotifyModalOpen(false);
                     setNotifyMessage("");
                   } else {
-                    toast.error(result?.message || "Failed to send message to vendor");
+                    toast.error(
+                      result?.message || "Failed to send message to vendor",
+                    );
                   }
                 } catch (err) {
                   toast.error("An error occurred while sending message");

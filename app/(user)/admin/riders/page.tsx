@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ interface RiderStatus {
 
 interface ApiRider {
   riderId: string;
+  code: string;
   fullName: string;
   registeredAt: string;
   onlineStatus: string;
@@ -147,12 +149,14 @@ export default function RidersPage() {
   const [selectedRiderForAction, setSelectedRiderForAction] = useState<ApiRider | null>(null);
   const [customMessage, setCustomMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [statusKey, setStatusKey] = useState("");
   const [statusReason, setStatusReason] = useState("");
   const [amountQuery, setAmountQuery] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
+  const [customSuspendReason, setCustomSuspendReason] = useState("");
   const [isBulkSuspend, setIsBulkSuspend] = useState(false);
 
   const fetchRiders = useCallback(async () => {
@@ -342,6 +346,25 @@ export default function RidersPage() {
     fetchRiders();
   };
 
+  const handleExportRiders = async () => {
+    setIsExporting(true);
+    try {
+      const res = await authenticatedFetch("/admin/exports/riders", {
+        method: "GET",
+      });
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success) {
+        toast.success(apiRes.data?.message || "Export queued. You will receive an email shortly.");
+      } else {
+        toast.error(apiRes?.message || "Failed to start export");
+      }
+    } catch (err) {
+      toast.error("An error occurred during export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleNotify = async () => {
     if (!customMessage.trim()) return;
     setIsProcessing(true);
@@ -390,7 +413,7 @@ export default function RidersPage() {
   const totalItems = ridersData?.data?.total || 0;
   const totalPages = ridersData?.data?.totalPages || 0;
 
-  const gridLayout = "grid grid-cols-[220px_1fr_140px_150px_60px]";
+  const gridLayout = "grid grid-cols-[40px_120px_1fr_1fr_140px_150px_60px]";
 
   return (
     <div className="p-8 bg-[#F9FAFB] min-h-screen">
@@ -441,8 +464,18 @@ export default function RidersPage() {
               />
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="h-11 border-gray-200 font-normal text-gray-600">
-                <Download className="mr-2 h-4 w-4" /> Download
+              <Button 
+                variant="outline" 
+                className="h-11 border-gray-200 font-normal text-gray-600"
+                onClick={handleExportRiders}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 size={16} className="mr-2 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {isExporting ? "Exporting..." : "Download"}
               </Button>
               <Button
                 variant={isFilterOpen ? "default" : "outline"}
@@ -540,21 +573,6 @@ export default function RidersPage() {
               size="sm"
               disabled={selectedRiders.length === 0}
               onClick={() => {
-                // If single selected, pre-set action modal
-                if (selectedRiders.length === 1) {
-                  const rider = riders.find(r => r.riderId === selectedRiders[0]);
-                  setSelectedRiderForAction(rider || null);
-                }
-                setMarkAsModalOpen(true);
-              }}
-            >
-              Mark Rider As...
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={selectedRiders.length === 0}
-              onClick={() => {
                 if (selectedRiders.length === 1) {
                   const rider = riders.find(r => r.riderId === selectedRiders[0]);
                   setSelectedRiderForAction(rider || null);
@@ -563,16 +581,6 @@ export default function RidersPage() {
               }}
             >
               Notify Rider...
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-400 border-gray-100"
-              disabled={selectedRiders.length === 0 || isProcessing}
-              onClick={handleBulkSuspendClick}
-            >
-              {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              Suspend/Unsuspend
             </Button>
           </div>
 
@@ -584,7 +592,7 @@ export default function RidersPage() {
                 "bg-[#F9FAFB] text-gray-900 border-b border-gray-200 text-sm font-medium",
               )}
             >
-              <div className="flex items-center gap-3 border-r border-gray-200 py-3 pl-4">
+              <div className="flex items-center justify-center border-r border-gray-200 py-3">
                 <Checkbox
                   className="rounded-sm"
                   checked={selectedRiders.length === riders.length && riders.length > 0}
@@ -593,8 +601,9 @@ export default function RidersPage() {
                     else setSelectedRiders(riders.map(r => r.riderId));
                   }}
                 />
-                Rider Name
               </div>
+              <div className="py-3 pl-4 border-r border-gray-200 text-xs uppercase tracking-wide text-gray-500 font-semibold">Rider Code</div>
+              <div className="py-3 pl-4 border-r border-gray-200 text-xs uppercase tracking-wide text-gray-500 font-semibold">Rider Name</div>
               <div className="py-3 pl-4 border-r border-gray-200">Reg Date</div>
               <div className="py-3 pl-4 border-r border-gray-200">Online Status</div>
               <div className="py-3 pl-4 border-r border-gray-200">Status</div>
@@ -603,12 +612,31 @@ export default function RidersPage() {
 
             {/* Table Rows */}
             {isLoading ? (
-              <div className="py-20 text-center bg-white">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#E86B35]" />
-                  <p className="text-gray-500 font-medium text-sm">Loading riders...</p>
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className={cn(gridLayout, "border-b border-gray-100 bg-white")}>
+                  <div className="flex items-center justify-center py-4 border-r border-gray-100">
+                    <Skeleton className="h-4 w-4 rounded" />
+                  </div>
+                  <div className="flex items-center pl-4 py-4 border-r border-gray-100">
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <div className="flex items-center pl-4 py-4 border-r border-gray-100">
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <div className="flex items-center pl-4 py-4 border-r border-gray-100">
+                    <Skeleton className="h-4 w-36" />
+                  </div>
+                  <div className="flex items-center pl-4 py-4 border-r border-gray-100">
+                    <Skeleton className="h-6 w-16 rounded" />
+                  </div>
+                  <div className="flex items-center pl-4 py-4 border-r border-gray-100">
+                    <Skeleton className="h-6 w-20 rounded" />
+                  </div>
+                  <div className="flex justify-center items-center py-4">
+                    <Skeleton className="h-8 w-8 rounded" />
+                  </div>
                 </div>
-              </div>
+              ))
             ) : riders.length === 0 ? (
               <div className="py-20 text-center text-gray-500 font-medium bg-white text-sm">
                 No riders found.
@@ -620,7 +648,7 @@ export default function RidersPage() {
                   className="border-b border-gray-100 last:border-b-0"
                 >
                   <div className={cn(gridLayout, "text-sm items-stretch bg-white")}>
-                    <div className="flex items-center gap-3 border-r border-gray-100 py-4 pl-4 font-medium text-gray-900">
+                    <div className="flex items-center justify-center border-r border-gray-100 py-4">
                       <Checkbox
                         className="rounded-sm"
                         checked={selectedRiders.includes(rider.riderId)}
@@ -632,6 +660,11 @@ export default function RidersPage() {
                           )
                         }
                       />
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 py-4">
+                      <span className="font-mono text-xs text-gray-500">{rider.code}</span>
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 py-4 font-medium text-gray-900">
                       {rider.fullName}
                     </div>
                     <div className="flex items-center pl-4 border-r border-gray-100 text-gray-600">
@@ -891,8 +924,8 @@ export default function RidersPage() {
             <Button variant="outline" onClick={() => setSuspendModalOpen(false)}>Cancel</Button>
             <Button 
               className="bg-red-500 hover:bg-red-600 text-white font-medium"
-              onClick={isBulkSuspend ? confirmBulkSuspend : () => confirmSuspension(selectedRiderForAction?.riderId || "", false, suspendReason)}
-              disabled={isProcessing || !suspendReason.trim()}
+              onClick={isBulkSuspend ? confirmBulkSuspend : () => confirmSuspension(selectedRiderForAction?.riderId || "", false, suspendReason === "Other" ? customSuspendReason : suspendReason)}
+              disabled={isProcessing || !suspendReason.trim() || (suspendReason === "Other" && !customSuspendReason.trim())}
             >
               {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Suspend Rider"}
             </Button>
@@ -923,22 +956,13 @@ export default function RidersPage() {
           </div>
           {suspendReason === "Other" && (
             <textarea
-              value={suspendReason === "Other" ? "" : suspendReason} // Logic for custom reason could be improved
-              onChange={(e) => setSuspendReason(e.target.value)}
+              value={customSuspendReason}
+              onChange={(e) => setCustomSuspendReason(e.target.value)}
               placeholder="Enter custom reason..."
               rows={3}
-              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[80px]"
             />
           )}
-          {/* Simple custom reason input if "Other" is selected */}
-          {suspendReason === "Other" ? (
-             <textarea
-               onChange={(e) => setSuspendReason(e.target.value)}
-               placeholder="Specify the reason..."
-               rows={3}
-               className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
-             />
-          ) : null}
         </div>
       </CustomModal>
     </div>

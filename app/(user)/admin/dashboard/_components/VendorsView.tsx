@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { format } from "date-fns";
 import {
   Download,
   Filter,
@@ -17,6 +18,9 @@ import {
   Mail,
   X,
   ChevronDown,
+  Loader2,
+  Pause,
+  Play,
 } from "lucide-react";
 import {
   BarChart,
@@ -47,7 +51,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
-  MOCK_VENDORS,
   vendorPerformanceData,
   topSellingData,
 } from "../lib/dashboard-data";
@@ -121,6 +124,13 @@ const colorMap: Record<string, string> = {
   "red-400": "#F87171",
 };
 
+const vendorStatusOptions = [
+  { key: "active", label: "Active" },
+  { key: "suspended", label: "Suspended" },
+  { key: "rejected", label: "Rejected" },
+  { key: "pending_review", label: "Pending Review" },
+];
+
 export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { range?: string, refreshTrigger?: number }) => {
   const router = useRouter();
 
@@ -132,8 +142,108 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
   const [notifyVendorOpen, setNotifyVendorOpen] = useState(false);
   const [selectedVendorForAction, setSelectedVendorForAction] = useState<string | null>(null);
-  const [notificationOption, setNotificationOption] = useState("");
   const [customMessage, setCustomMessage] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  // Mark Vendor As State
+  const [markVendorAsOpen, setMarkVendorAsOpen] = useState(false);
+  const [selectedVendorStatusKey, setSelectedVendorStatusKey] = useState("");
+  const [vendorStatusReason, setVendorStatusReason] = useState("");
+  const [isChangingVendorStatus, setIsChangingVendorStatus] = useState(false);
+
+  // Vendor Action Modal (Suspend, Unsuspend, Deactivate)
+  const [vendorActionModalOpen, setVendorActionModalOpen] = useState(false);
+  const [vendorActionType, setVendorActionType] = useState<"suspend" | "unsuspend" | "deactivate" | "">("");
+  const [vendorActionReason, setVendorActionReason] = useState("");
+  const [isPerformingVendorAction, setIsPerformingVendorAction] = useState(false);
+
+  const openVendorActionModal = (
+    vendorId: string | null,
+    action: "suspend" | "unsuspend" | "deactivate",
+  ) => {
+    setSelectedVendorForAction(vendorId);
+    setVendorActionType(action);
+    setVendorActionReason(
+      action === "suspend"
+        ? "Policy violation reported by multiple customers"
+        : action === "deactivate"
+          ? "Repeated severe policy violations. Account cannot be reinstated."
+          : "",
+    );
+    setVendorActionModalOpen(true);
+  };
+
+  const executeVendorAction = async () => {
+    if (
+      (vendorActionType === "suspend" || vendorActionType === "deactivate") &&
+      !vendorActionReason.trim()
+    ) {
+      toast.error("Please provide a reason");
+      return;
+    }
+
+    setIsPerformingVendorAction(true);
+    try {
+      const vendorIds = selectedVendorForAction
+        ? [selectedVendorForAction]
+        : [...selectedVendors];
+
+      if (!vendorIds.length) {
+        toast.error("No vendors selected");
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const vendorId of vendorIds) {
+        try {
+          const endpoint = `/admin/vendors/${vendorId}/${vendorActionType}`;
+          const res = await authenticatedFetch(endpoint, {
+            method: "PATCH",
+            body: JSON.stringify({
+              reason: vendorActionReason.trim(),
+            }),
+          });
+          const result = await parseApiResponse(res);
+          if (result?.success) {
+            successCount++;
+          } else {
+            failCount++;
+            if (vendorIds.length === 1) {
+              toast.error(result?.message || `Failed to ${vendorActionType} vendor`);
+            }
+          }
+        } catch {
+          failCount++;
+        }
+      }
+
+      if (vendorIds.length > 1) {
+        if (failCount === 0)
+          toast.success(
+            `Action completed for all ${successCount} selected vendors`,
+          );
+        else
+          toast.warning(
+            `Action completed for ${successCount}, failed for ${failCount} vendors`,
+          );
+      } else if (successCount > 0) {
+        toast.success(`Vendor successfully ${vendorActionType}ed`);
+      }
+
+      setVendorActionModalOpen(false);
+      setSelectedVendorForAction(null);
+      setVendorActionType("");
+      setVendorActionReason("");
+      setSelectedVendors([]);
+      fetchDashboardData();
+    } catch (err) {
+      toast.error(`Failed to ${vendorActionType} vendor`);
+    } finally {
+      setIsPerformingVendorAction(false);
+    }
+  };
 
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,6 +282,7 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
 
       const res = await authenticatedFetch(`/admin/analytics/dashboard?${params.toString()}`);
       const result = await parseApiResponse(res);
+      console.log("result", result);
       if (result?.success) {
         setData(result.data);
       }
@@ -203,15 +314,14 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
   const paginated = useMemo(() => {
     if (!data?.table?.data) return [];
     return data.table.data.map((v: any) => ({
-      id: v.id,
+      ...v,
+      id: v.id, // Business ID for routing/details
+      vendorId: v.vendorId, // User ID for administrative actions
+      vendorCode: v.vendorCode,
       name: v.displayName || v.legalName || "Unknown",
-      regDate: new Date(v.createdAt).toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric'
-      }),
-      products: v.menuItemsCount || 0,
-      status: v.status === "ACTIVE" ? "APPROVED" : 
-              v.status === "PENDING_REVIEW" ? "PENDING APPROVAL" : 
-              v.status,
+      createdAt: v.createdAt,
+      products: v.menuItemsCount ?? 0,
+      status: v.status,
       flagged: false, // Not provided
     }));
   }, [data]);
@@ -517,26 +627,36 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
               variant="outline"
               size="sm"
               disabled={!selectedVendors.length}
+              onClick={() => {
+                setSelectedVendorForAction(null);
+                setSelectedVendorStatusKey("");
+                setVendorStatusReason("");
+                setMarkVendorAsOpen(true);
+              }}
             >
               Mark Vendor As...
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="text-red-400 border-gray-100"
               disabled={!selectedVendors.length}
-              onClick={() => handleDeactivate(selectedVendors)}
+              onClick={() => {
+                setSelectedVendorForAction(null);
+                setCustomMessage("");
+                setNotifyVendorOpen(true);
+              }}
             >
-              Deactivate Vendor
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Notify Vendor...
             </Button>
             <Button
               variant="outline"
               size="sm"
+              className="text-red-400 border-gray-100"
               disabled={!selectedVendors.length}
-              onClick={() => setNotifyVendorOpen(true)}
+              onClick={() => openVendorActionModal(null, "deactivate")}
             >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Notify Vendor...
+              Deactivate Vendor
             </Button>
           </div>
 
@@ -553,11 +673,14 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
                       }
                       onCheckedChange={(checked) => {
                         setSelectedVendors(
-                          checked ? paginated.map((v: any) => v.id) : [],
+                          checked ? paginated.map((v: any) => v.vendorId) : [],
                         );
                       }}
                       className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                     />
+                  </th>
+                  <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
+                    Vendor Code
                   </th>
                   <th className="p-4 text-[11px] uppercase tracking-wider text-gray-500 border-r border-gray-100 whitespace-nowrap">
                     Vendor Name
@@ -582,32 +705,34 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
                   >
                     <td className="p-4 border-r border-gray-100">
                       <Checkbox
-                        checked={selectedVendors.includes(vendor.id)}
+                        checked={selectedVendors.includes(vendor.vendorId)}
                         onCheckedChange={(c) =>
                           setSelectedVendors((prev) =>
                             c
-                              ? [...prev, vendor.id]
-                              : prev.filter((id) => id !== vendor.id),
+                              ? [...prev, vendor.vendorId]
+                              : prev.filter((id) => id !== vendor.vendorId),
                           )
                         }
                         className="border-gray-300 data-[state=checked]:bg-[#E86B35] data-[state=checked]:border-[#E86B35]"
                       />
                     </td>
-                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
-                      <div className="flex flex-col">
-                        <span>{vendor.name}</span>
-                        <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{vendor.id}</span>
-                      </div>
+                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100 whitespace-nowrap">
+                      {vendor.vendorCode || "—"}
                     </td>
-                    <td className="p-4 text-gray-500 border-r border-gray-100 whitespace-nowrap">{vendor.regDate}</td>
                     <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
-                      {vendor.products || vendor.itemsListed || "—"}
+                      {vendor.name}
+                    </td>
+                    <td className="p-4 text-gray-500 border-r border-gray-100 whitespace-nowrap">
+                      {vendor.createdAt ? format(new Date(vendor.createdAt), "do MMM yyyy, h:mm a") : "—"}
+                    </td>
+                    <td className="p-4 text-gray-600 font-medium border-r border-gray-100">
+                      {vendor.products ?? 0}
                     </td>
                     <td className="p-4 border-r border-gray-100">
                       <div className="flex items-center gap-3">
                         <span
                           className={cn(
-                            "px-2.5 py-1 rounded text-[10px] uppercase font-bold text-white shadow-sm inline-block",
+                            "px-2.5 py-1 rounded text-[10px] uppercase font-bold text-white inline-block",
                             vendor.status === "ACTIVE" ? "bg-[#50C828]" : 
                             vendor.status === "PENDING_REVIEW" ? "bg-yellow-500" :
                             vendor.status === "REJECTED" ? "bg-red-500" :
@@ -640,31 +765,68 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
                             />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-[200px]">
                           <DropdownMenuItem
+                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
                             onClick={() =>
-                              router.push(`/admin/vendors/${vendor.id}`)
+                              router.push(
+                                `/admin/vendors/${vendor.id}`,
+                              )
                             }
                           >
-                            <Eye className="mr-2 h-4 w-4" /> View Details
+                            <Eye size={16} className="text-gray-400" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <UserCheck className="mr-2 h-4 w-4" /> Mark Vendor
+                          <DropdownMenuItem
+                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              setSelectedVendorForAction(vendor.vendorId);
+                              setSelectedVendorStatusKey("");
+                              setVendorStatusReason("");
+                              setMarkVendorAsOpen(true);
+                            }}
+                          >
+                            <UserCheck size={16} className="text-gray-400" /> Mark Vendor
                             as...
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            className="gap-3 py-2.5 font-medium text-xs text-gray-700 focus:bg-gray-50 cursor-pointer"
                             onClick={() => {
-                              setSelectedVendorForAction(vendor.id);
+                              setSelectedVendorForAction(vendor.vendorId);
+                              setCustomMessage("");
                               setNotifyVendorOpen(true);
                             }}
                           >
-                            <Mail className="mr-2 h-4 w-4" /> Notify Vendor...
+                            <Mail size={16} className="text-gray-400" /> Notify
+                            Vendor...
                           </DropdownMenuItem>
+
+                          {vendor.status === "SUSPENDED" ? (
+                            <DropdownMenuItem
+                              className="gap-3 py-2.5 font-medium text-xs text-blue-600 border-t border-gray-50 mt-1 focus:bg-blue-50 cursor-pointer"
+                              onClick={() =>
+                                openVendorActionModal(vendor.vendorId, "unsuspend")
+                              }
+                            >
+                              <Play size={16} /> Unsuspend Vendor
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="gap-3 py-2.5 font-medium text-xs text-orange-600 border-t border-gray-50 mt-1 focus:bg-orange-50 cursor-pointer"
+                              onClick={() =>
+                                openVendorActionModal(vendor.vendorId, "suspend")
+                              }
+                            >
+                              <Pause size={16} /> Suspend Vendor
+                            </DropdownMenuItem>
+                          )}
+
                           <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDeactivate([vendor.id])}
+                            className="gap-3 py-2.5 font-medium text-xs text-red-500 border-t border-gray-50 mt-1 focus:bg-red-50 cursor-pointer"
+                            onClick={() =>
+                              openVendorActionModal(vendor.vendorId, "deactivate")
+                            }
                           >
-                            <Ban className="mr-2 h-4 w-4" /> Deactivate Vendor
+                            <Ban size={16} /> Deactivate Vendor
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -757,79 +919,381 @@ export const VendorsView = ({ range = "last_30_days", refreshTrigger = 0 }: { ra
         isOpen={notifyVendorOpen}
         onClose={() => {
           setNotifyVendorOpen(false);
-          setNotificationOption("");
           setCustomMessage("");
         }}
-        title="Notify Vendor..."
+        title="Notify Vendor"
         maxWidth="sm:max-w-[580px]"
         footer={
           <>
             <Button
               variant="outline"
-              onClick={() => setNotifyVendorOpen(false)}
+              onClick={() => {
+                setNotifyVendorOpen(false);
+                setCustomMessage("");
+              }}
             >
               Cancel
             </Button>
             <Button
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={!notificationOption}
-              onClick={() => {
-                toast.success("Notification sent to vendor");
-                setNotifyVendorOpen(false);
-                setNotificationOption("");
-                setCustomMessage("");
+              className="bg-orange-500 hover:bg-orange-600 text-white shadow-none"
+              disabled={!customMessage.trim() || isSendingMessage}
+              onClick={async () => {
+                if (!customMessage.trim()) return;
+
+                setIsSendingMessage(true);
+                try {
+                  const vendorIds = selectedVendorForAction
+                    ? [selectedVendorForAction]
+                    : [...selectedVendors];
+
+                  if (!vendorIds.length) {
+                    toast.error("No vendors selected");
+                    return;
+                  }
+
+                  const res = await authenticatedFetch(
+                    `/admin/vendors/bulk/messages`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        vendorIds,
+                        message: customMessage.trim(),
+                      }),
+                    },
+                  );
+                  const result = await parseApiResponse(res);
+
+                  if (result?.success) {
+                    toast.success(
+                      `Message sent to ${vendorIds.length} vendor${vendorIds.length > 1 ? "s" : ""}`,
+                    );
+                  } else {
+                    const errorMessage =
+                      result?.error ||
+                      result?.message ||
+                      "Failed to send message";
+                    toast.error(errorMessage);
+                  }
+
+                  setNotifyVendorOpen(false);
+                  setCustomMessage("");
+                  setSelectedVendors([]);
+                } catch (err) {
+                  toast.error("Failed to send message");
+                } finally {
+                  setIsSendingMessage(false);
+                }
               }}
             >
-              Send Message
+              {isSendingMessage ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Message"
+              )}
             </Button>
           </>
         }
       >
         <div className="space-y-6">
           <p className="text-sm text-gray-700">
-            Send notification to:{" "}
-            <span className="font-medium">
-              {selectedVendorForAction
-                ? MOCK_VENDORS.find((v) => v.id === selectedVendorForAction)
-                    ?.name
-                : "Selected vendors"}
-            </span>
+            {selectedVendorForAction ? (
+              <>
+                Send a message to vendor:{" "}
+                <span className="font-medium">
+                  {paginated.find((v:any) => v.id === selectedVendorForAction)?.name || "Vendor"}
+                </span>
+              </>
+            ) : (
+              <>
+                Send a message to vendors for{" "}
+                <span className="font-medium">
+                  {selectedVendors.length} selected vendor
+                  {selectedVendors.length !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
           </p>
 
           <div className="space-y-3">
-            {[
-              { id: "welcome", label: "Welcome / Account Activation" },
-              { id: "performance", label: "Performance Update" },
-              { id: "warning", label: "Policy / Warning Notice" },
-              { id: "custom", label: "Custom Message" },
-            ].map((opt) => (
-              <label
-                key={opt.id}
-                className="flex items-center gap-3 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="notify-vendor"
-                  checked={notificationOption === opt.id}
-                  onChange={() => setNotificationOption(opt.id)}
-                  className="h-4 w-4 text-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm text-gray-800">{opt.label}</span>
-              </label>
-            ))}
+            <label className="block text-sm font-medium text-gray-700">
+              Message
+            </label>
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Type your message here..."
+              rows={5}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+            />
           </div>
+        </div>
+      </CustomModal>
 
-          {notificationOption === "custom" && (
+      {/* Mark Vendor As Modal */}
+      <CustomModal
+        isOpen={markVendorAsOpen}
+        onClose={() => {
+          if (!isChangingVendorStatus) {
+            setMarkVendorAsOpen(false);
+            setSelectedVendorForAction(null);
+            setSelectedVendorStatusKey("");
+            setVendorStatusReason("");
+          }
+        }}
+        title="Mark Vendor As"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMarkVendorAsOpen(false);
+                setSelectedVendorForAction(null);
+                setSelectedVendorStatusKey("");
+                setVendorStatusReason("");
+              }}
+              disabled={isChangingVendorStatus}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white shadow-none"
+              disabled={
+                !selectedVendorStatusKey ||
+                !vendorStatusReason.trim() ||
+                isChangingVendorStatus
+              }
+              onClick={async () => {
+                if (!selectedVendorStatusKey || !vendorStatusReason.trim())
+                  return;
+
+                setIsChangingVendorStatus(true);
+
+                try {
+                  const vendorIds = selectedVendorForAction
+                    ? [selectedVendorForAction]
+                    : [...selectedVendors];
+
+                  if (!vendorIds.length) {
+                    toast.error("No vendor selected");
+                    return;
+                  }
+
+                  let successCount = 0;
+                  let failCount = 0;
+
+                  for (const vendorId of vendorIds) {
+                    try {
+                      const res = await authenticatedFetch(
+                        `/admin/vendors/${vendorId}/status`,
+                        {
+                          method: "PATCH",
+                          body: JSON.stringify({
+                            statusKey: selectedVendorStatusKey,
+                            reason: vendorStatusReason.trim(),
+                          }),
+                        },
+                      );
+                      const result = await parseApiResponse(res);
+                      console.log("vendor id", vendorId)
+                      if (result?.success) {
+                        successCount++;
+                      } else {
+                        failCount++;
+                        const errorMessage =
+                          result?.error ||
+                          result?.message ||
+                          "Failed to update status";
+                        if (vendorIds.length === 1) {
+                          toast.error(errorMessage);
+                        }
+                      }
+                    } catch {
+                      failCount++;
+                    }
+                  }
+
+                  if (vendorIds.length > 1) {
+                    if (failCount === 0) {
+                      toast.success(
+                        `Status updated for ${successCount} vendor${successCount > 1 ? "s" : ""}`,
+                      );
+                    } else {
+                      toast.warning(
+                        `Updated ${successCount}, failed for ${failCount} vendor${failCount > 1 ? "s" : ""}`,
+                      );
+                    }
+                  } else if (successCount > 0) {
+                    toast.success("Vendor status updated successfully");
+                  }
+
+                  setMarkVendorAsOpen(false);
+                  setSelectedVendorForAction(null);
+                  setSelectedVendorStatusKey("");
+                  setVendorStatusReason("");
+                  setSelectedVendors([]);
+                  fetchDashboardData();
+                } catch (err) {
+                  toast.error("Failed to update vendor status");
+                } finally {
+                  setIsChangingVendorStatus(false);
+                }
+              }}
+            >
+              {isChangingVendorStatus ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Status"
+              )}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedVendorForAction ? (
+              <>
+                Change status for vendor:{" "}
+                <span className="font-medium">
+                  {paginated.find((v:any) => v.id === selectedVendorForAction)?.name || "Vendor"}
+                </span>
+              </>
+            ) : (
+              <>
+                Change status for{" "}
+                <span className="font-medium">
+                  {selectedVendors.length} selected vendor
+                  {selectedVendors.length !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
+          </p>
+
+          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message
+                New Status
+              </label>
+              <Select
+                value={selectedVendorStatusKey}
+                onValueChange={setSelectedVendorStatusKey}
+                disabled={isChangingVendorStatus}
+              >
+                <SelectTrigger className="w-full shadow-none">
+                  <SelectValue placeholder="Select new status" />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  {vendorStatusOptions.map((opt) => (
+                    <SelectItem key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason
               </label>
               <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                placeholder="Type your message here..."
-                rows={4}
-                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                value={vendorStatusReason}
+                onChange={(e) => setVendorStatusReason(e.target.value)}
+                placeholder="Enter reason for status change..."
+                rows={3}
+                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+                disabled={isChangingVendorStatus}
+              />
+            </div>
+          </div>
+        </div>
+      </CustomModal>
+
+      {/* Vendor Action Modal */}
+      <CustomModal
+        isOpen={vendorActionModalOpen}
+        onClose={() => {
+          if (!isPerformingVendorAction) {
+            setVendorActionModalOpen(false);
+            setVendorActionReason("");
+          }
+        }}
+        title={`${vendorActionType ? vendorActionType.charAt(0).toUpperCase() + vendorActionType.slice(1) : "Action"} Vendor`}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVendorActionModalOpen(false);
+                setVendorActionReason("");
+              }}
+              disabled={isPerformingVendorAction}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white shadow-none"
+              disabled={
+                ((vendorActionType === "suspend" ||
+                  vendorActionType === "deactivate") &&
+                  !vendorActionReason.trim()) ||
+                isPerformingVendorAction
+              }
+              onClick={executeVendorAction}
+            >
+              {isPerformingVendorAction ? (
+                <>
+                  <Loader2
+                    className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            {selectedVendorForAction ? (
+              <>
+                Are you sure you want to {vendorActionType} this vendor:{" "}
+                <span className="font-medium">
+                  {paginated.find((v:any) => v.id === selectedVendorForAction)?.name || "Vendor"}
+                </span>
+                ?
+              </>
+            ) : (
+              <>
+                Are you sure you want to {vendorActionType}{" "}
+                <span className="font-medium">
+                  {selectedVendors.length} selected vendor
+                  {selectedVendors.length !== 1 ? "s" : ""}
+                </span>
+                ?
+              </>
+            )}
+          </p>
+
+          {(vendorActionType === "suspend" ||
+            vendorActionType === "deactivate") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={vendorActionReason}
+                onChange={(e) => setVendorActionReason(e.target.value)}
+                placeholder="Enter reason..."
+                rows={3}
+                className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+                disabled={isPerformingVendorAction}
               />
             </div>
           )}

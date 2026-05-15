@@ -21,6 +21,7 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -293,6 +294,7 @@ export default function OrdersPage() {
   const [statusChangeError, setStatusChangeError] = useState<string | null>(
     null,
   );
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
@@ -350,6 +352,26 @@ export default function OrdersPage() {
     paymentStatus,
     amountQuery,
   ]);
+  
+  const handleExportOrders = async () => {
+    setIsExporting(true);
+    try {
+      const res = await authenticatedFetch("/admin/exports/orders", {
+        method: "GET",
+      });
+      const apiRes = await parseApiResponse(res);
+      console.log("apiRes", apiRes)
+      if (apiRes?.success) {
+        toast.success(apiRes.data?.message || "Export queued. You will receive an email shortly.");
+      } else {
+        toast.error(apiRes?.message || "Failed to start export");
+      }
+    } catch (err) {
+      toast.error("An error occurred during export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Fetch on mount and when filters change
   useEffect(() => {
@@ -694,10 +716,7 @@ export default function OrdersPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gray-900">
             {isLoading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Loading...
-              </span>
+              <Skeleton className="h-7 w-32" />
             ) : error ? (
               <span className="text-red-500">{error}</span>
             ) : (
@@ -757,8 +776,17 @@ export default function OrdersPage() {
               />
             </div>
             <div className="flex gap-3">
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" /> Download
+              <Button 
+                variant="outline" 
+                onClick={handleExportOrders}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {isExporting ? "Exporting..." : "Download"}
               </Button>
               <Button
                 variant={isFilterOpen ? "default" : "outline"}
@@ -772,7 +800,7 @@ export default function OrdersPage() {
 
           {/* Filters */}
           {isFilterOpen && (
-            <div className="border-b pb-6 space-y-4">
+            <div className="border-b pb-6 space-y-4 animate-in slide-in-from-top-2 fade-in duration-200">
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex items-center gap-2 px-3 h-10 bg-gray-50 border rounded-md text-sm text-gray-600">
                   <Filter size={16} /> Filter
@@ -1062,7 +1090,34 @@ export default function OrdersPage() {
             </div>
 
             {/* Table Rows */}
-            {displayedOrders.map((order) => {
+            {isLoading
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className={cn(gridLayout, "border-b border-gray-100 bg-white")}>
+                    <div className="flex items-center gap-3 border-r border-gray-100 py-4 pl-4">
+                      <Skeleton className="h-4 w-4 rounded" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 py-4">
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 py-4">
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 py-4">
+                      <Skeleton className="h-4 w-28" />
+                    </div>
+                    <div className="flex items-center border-r border-gray-100 px-4 py-4">
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                    </div>
+                    <div className="flex items-center pl-4 border-r border-gray-100 py-4">
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                    <div className="flex justify-center items-center py-4">
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </div>
+                ))
+              : displayedOrders.map((order) => {
               const isExpanded = expandedRows.includes(order.id);
               return (
                 <div
