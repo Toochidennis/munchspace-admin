@@ -100,7 +100,6 @@ export default function SignInPage() {
       setIsCheckingAuth(false);
     }
   }, [router]);
-  
   // Handle OTP resend cooldown
   useEffect(() => {
     if (resendCooldown > 0) {
