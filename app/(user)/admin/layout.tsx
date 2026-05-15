@@ -56,6 +56,50 @@ export default function DashboardLayout({
     }
   }, [router, pathname]);
 
+  // Handle auto-logout after 15 minutes of inactivity
+  useEffect(() => {
+    const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes
+    let inactivityTimer: NodeJS.Timeout;
+
+    const logout = () => {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("admin");
+      localStorage.removeItem("customer");
+      localStorage.removeItem("vendor");
+      localStorage.removeItem("user");
+      router.push("/login");
+    };
+
+    const resetTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(logout, INACTIVITY_LIMIT);
+    };
+
+    // Events to track user activity
+    const activityEvents = [
+      "mousedown",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click"
+    ];
+
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    resetTimer();
+
+    return () => {
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+    };
+  }, [router]);
+
   const getPageTitle = () => {
     // Exact match
     if (routeTitles[pathname]) return routeTitles[pathname];
