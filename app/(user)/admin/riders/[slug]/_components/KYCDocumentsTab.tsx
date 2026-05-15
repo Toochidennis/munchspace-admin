@@ -42,7 +42,7 @@ function CustomModal({
         )}
       >
         <div className="flex border-b items-center justify-between px-6 py-5">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <h2 className="text-lg text-gray-900">{title}</h2>
           <button
             className="text-gray-400 hover:text-gray-600 transition-colors"
             onClick={onClose}
@@ -142,7 +142,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Vehicle Information */}
       <Card className="p-6 border border-gray-100 rounded-xl bg-white">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">
+        <h3 className="text-lg text-gray-900 mb-6">
           Vehicle Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-y-10 gap-x-12">
@@ -154,10 +154,10 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
             { label: "Vehicle Color", value: vehicleInfo?.color || "N/A" },
           ].map((item, i) => (
             <div key={i}>
-              <p className="text-[11px] tracking-wider text-gray-400 font-bold mb-2 uppercase">
+              <p className="text-[11px] tracking-wider text-gray-400 mb-2 uppercase">
                 {item.label}
               </p>
-              <p className="text-sm font-bold text-gray-900">{item.value}</p>
+              <p className="text-sm text-gray-900">{item.value}</p>
             </div>
           ))}
         </div>
@@ -171,7 +171,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
         >
           <div className="flex items-start justify-between mb-6">
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-gray-900">{section.label}</h3>
+              <h3 className="text-lg text-gray-900">{section.label}</h3>
               <p className="text-sm text-gray-400 font-medium">
                 Documents related to {section.label?.toLowerCase() || "this section"}
               </p>
@@ -179,7 +179,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
             <div className="flex items-center gap-3">
               <Badge
                 className={cn(
-                  "border-none px-3 py-1 rounded-md text-[10px] font-bold transition-colors uppercase",
+                  "border-none px-3 py-1 rounded-md text-[10px] transition-colors uppercase",
                   section.sectionStatus?.label === "Pending Review"
                     ? "bg-blue-50 text-blue-500"
                     : section.sectionStatus?.label === "Rejected"
@@ -194,7 +194,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 font-bold rounded-md px-4"
+                className="h-9 border-[#E86B35] text-[#E86B35] hover:bg-orange-50 rounded-md px-4"
                 onClick={() => handleOpenModal(section)}
               >
                 Mark document as...
@@ -203,7 +203,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
           </div>
 
           <div className="space-y-2">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mb-2">
+            <p className="text-[10px] text-gray-400 uppercase tracking-tight mb-2">
               Submitted docs:
             </p>
             <div className="grid grid-cols-1 gap-2">
@@ -219,7 +219,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
                     className="flex items-center gap-2 text-blue-500 hover:underline cursor-pointer"
                   >
                     <Paperclip size={14} className="text-gray-400" />
-                    <span className="text-xs font-bold">{file.type?.label}</span>
+                    <span className="text-xs">{file.type?.label}</span>
                   </a>
                   <div className="w-[1px] h-3 bg-gray-200" />
                   <span className="text-[10px] text-gray-400 font-medium">
@@ -228,7 +228,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
                   <div className="w-[1px] h-3 bg-gray-200" />
                   <Badge
                     className={cn(
-                      "border-none px-2 py-0.5 rounded-md text-[9px] font-bold transition-colors uppercase",
+                      "border-none px-2 py-0.5 rounded-md text-[9px] transition-colors uppercase",
                       file.status?.label === "Pending Review"
                         ? "bg-blue-50 text-blue-500"
                         : file.status?.label === "Rejected"
@@ -258,14 +258,14 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
             <Button
               variant="outline"
               onClick={() => setIsModalOpen(false)}
-              className="h-10 rounded-md border-gray-200 font-bold text-gray-600 px-6"
+              className="h-10 rounded-md border-gray-200 text-gray-600 px-6"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="h-10 rounded-md bg-[#E86B35] hover:bg-[#d15d2c] text-white font-bold px-8"
+              className="h-10 rounded-md bg-[#E86B35] hover:bg-[#d15d2c] text-white px-8"
             >
               {isSaving ? "Saving..." : "Submit"}
             </Button>
@@ -296,7 +296,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
                 />
                 <Label
                   htmlFor={s}
-                  className="text-sm font-bold text-gray-700 cursor-pointer"
+                  className="text-sm text-gray-700 cursor-pointer"
                 >
                   {s}
                 </Label>
@@ -306,20 +306,20 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
 
           {statusValue !== "Verified" && (
             <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-500">
+              <label className="text-sm text-gray-500">
                 Message to Vendor <span className="text-red-500">*</span>
               </label>
               <Textarea
                 placeholder="Explain why the document was rejected..."
                 value={vendorMessage}
                 onChange={(e) => setVendorMessage(e.target.value)}
-                className="min-h-[120px] border-gray-200 rounded-lg text-sm placeholder:text-gray-400 italic"
+                className="min-h-[120px] border-gray-200 rounded-lg text-sm placeholder:text-gray-400"
               />
             </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-500">
+            <label className="text-sm text-gray-500">
               Note <span className="text-red-500">*</span>
             </label>
             <Textarea
@@ -330,7 +330,7 @@ export default function KYCDocumentsTab({ riderId }: { riderId: string }) {
               }
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="min-h-[120px] border-gray-200 rounded-lg text-sm placeholder:text-gray-400 italic"
+              className="min-h-[120px] border-gray-200 rounded-lg text-sm placeholder:text-gray-400"
             />
           </div>
         </div>

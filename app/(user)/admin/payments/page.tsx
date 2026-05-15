@@ -137,6 +137,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [statusGroups, setStatusGroups] = useState<PaymentGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Filters
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -196,6 +197,25 @@ export default function PaymentsPage() {
       setIsLoading(false);
     }
   }, [currentPage, pageSize, selectedRange, activeStatusTab, searchQuery, startDate, endDate]);
+
+  const handleExportPayments = async () => {
+    setIsExporting(true);
+    try {
+      const res = await authenticatedFetch("/admin/exports/payments", {
+        method: "GET",
+      });
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success) {
+        toast.success(apiRes.data?.message || "Export queued. You will receive an email shortly.");
+      } else {
+        toast.error(apiRes?.message || "Failed to start export");
+      }
+    } catch (err) {
+      toast.error("An error occurred during export");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
@@ -324,33 +344,42 @@ export default function PaymentsPage() {
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-y-auto p-6 md:p-8 font-inter">
         <div className="max-w-[1400px] mx-auto space-y-6">
-          
           {/* Top Header Controls */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Total ({totalCount})</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Total ({totalCount})
+            </h1>
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="text-gray-500 hover:bg-white"
                 onClick={() => fetchPayments()}
               >
-                <RotateCcw size={18} className={isLoading ? "animate-spin" : ""} />
+                <RotateCcw
+                  size={18}
+                  className={isLoading ? "animate-spin" : ""}
+                />
               </Button>
-              <Select value={selectedRange} onValueChange={(v) => {
-                setSelectedRange(v);
-                setStartDate(undefined);
-                setEndDate(undefined);
-                setCurrentPage(1);
-              }}>
+              <Select
+                value={selectedRange}
+                onValueChange={(v) => {
+                  setSelectedRange(v);
+                  setStartDate(undefined);
+                  setEndDate(undefined);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[180px] h-11 border-gray-200 bg-white shadow-none rounded-lg text-gray-700">
                   <CalendarIcon size={18} className="mr-2 text-gray-400" />
                   <SelectValue placeholder="Last 30 days" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All time</SelectItem>
-                  {RANGE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  {RANGE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -359,7 +388,6 @@ export default function PaymentsPage() {
 
           {/* Card Container */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
-            
             {/* Search & Actions Bar */}
             <div className="flex items-center justify-between gap-4">
               <div className="relative w-full max-w-sm">
@@ -378,19 +406,34 @@ export default function PaymentsPage() {
                 />
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" className="h-11 bg-[#F1F3F5] border-none text-gray-600 font-bold px-5 rounded-lg hover:bg-gray-200">
-                  <Download className="mr-2 h-4 w-4" /> Download
+                <Button
+                  variant="outline"
+                  className="h-11 bg-[#F1F3F5] border-none text-gray-600 font-bold px-5 rounded-lg hover:bg-gray-200"
+                  onClick={handleExportPayments}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isExporting ? "Exporting..." : "Download"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
                   className={cn(
                     "h-11 bg-[#F1F3F5] border-none text-gray-600 font-bold px-5 rounded-lg hover:bg-gray-200 transition-all",
-                    isFilterOpen && "bg-gray-900 text-white hover:bg-gray-800"
+                    isFilterOpen && "bg-gray-900 text-white hover:bg-gray-800",
                   )}
                 >
                   <Filter className="mr-2 h-4 w-4" />
-                  Filter {isFilterOpen ? <X size={16} className="ml-2" /> : <ChevronLeft size={16} className="ml-2 rotate-270" />}
+                  Filter{" "}
+                  {isFilterOpen ? (
+                    <X size={16} className="ml-2" />
+                  ) : (
+                    <ChevronLeft size={16} className="ml-2 rotate-270" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -403,19 +446,24 @@ export default function PaymentsPage() {
                     <Filter size={16} /> Filter
                   </div>
 
-                  <Select value={selectedRange} onValueChange={(v) => {
-                    setSelectedRange(v);
-                    setStartDate(undefined);
-                    setEndDate(undefined);
-                    setCurrentPage(1);
-                  }}>
+                  <Select
+                    value={selectedRange}
+                    onValueChange={(v) => {
+                      setSelectedRange(v);
+                      setStartDate(undefined);
+                      setEndDate(undefined);
+                      setCurrentPage(1);
+                    }}
+                  >
                     <SelectTrigger className="w-[180px] h-10 border-gray-200">
                       <SelectValue placeholder="Date range" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All time</SelectItem>
-                      {RANGE_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      {RANGE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -427,7 +475,9 @@ export default function PaymentsPage() {
                         className="w-[180px] justify-start h-10 border-gray-200 text-left font-normal"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                        {startDate ? format(startDate, "dd/MM/yyyy") : "Start date"}
+                        {startDate
+                          ? format(startDate, "dd/MM/yyyy")
+                          : "Start date"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -460,8 +510,8 @@ export default function PaymentsPage() {
                     </PopoverContent>
                   </Popover>
 
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     onClick={resetFilters}
                     className="text-[#E86B35] hover:text-[#D15A2A] hover:bg-orange-50 font-bold text-sm"
                   >
@@ -484,7 +534,7 @@ export default function PaymentsPage() {
                     "pb-3 text-sm font-medium relative whitespace-nowrap",
                     activeStatusTab === tab.key
                       ? "text-[#E86B35] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#E86B35]"
-                      : "text-gray-500 hover:text-gray-700"
+                      : "text-gray-500 hover:text-gray-700",
                   )}
                 >
                   {tab.label} ({tab.count})
@@ -493,29 +543,35 @@ export default function PaymentsPage() {
             </div>
 
             {/* Selection Actions */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm">
-                Selected: <strong>{selectedIds.length}</strong>
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={selectedIds.length !== 1}
-                onClick={() => {
-                  const payment = payments.find((p) => p.paymentId === selectedIds[0]);
-                  if (payment) handleVerifyPayment(payment);
-                }}
-              >
-                Verify Payment
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={selectedIds.length === 0}
-              >
-                Recheck Status
-              </Button>
-            </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm">
+                  Selected: <strong>{selectedIds.length}</strong>
+                </span>
+                {selectedIds.length === 1 &&
+                  payments.find((p) => p.paymentId === selectedIds[0])?.status?.toLowerCase() !== "success" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const payment = payments.find(
+                          (p) => p.paymentId === selectedIds[0],
+                        );
+                        if (payment) handleVerifyPayment(payment);
+                      }}
+                    >
+                      Verify Payment
+                    </Button>
+                  )}
+                {selectedIds.length > 0 &&
+                  !selectedIds.every(
+                    (id) =>
+                      payments.find((p) => p.paymentId === id)?.status?.toLowerCase() === "success",
+                  ) && (
+                    <Button variant="outline" size="sm">
+                      Recheck Status
+                    </Button>
+                  )}
+              </div>
 
             {/* Table Header */}
             <div className="space-y-0 border border-gray-200 rounded-md overflow-hidden">
@@ -527,14 +583,19 @@ export default function PaymentsPage() {
               >
                 <div className="flex items-center gap-3 border-r border-gray-200 py-3 pl-4">
                   <Checkbox
-                    checked={selectedIds.length === payments.length && payments.length > 0}
+                    checked={
+                      selectedIds.length === payments.length &&
+                      payments.length > 0
+                    }
                     onCheckedChange={handleSelectAll}
                     className="rounded-sm"
                   />
                   Order ID
                 </div>
                 <div className="py-3 pl-4 border-r border-gray-200">Amount</div>
-                <div className="py-3 pl-4 border-r border-gray-200">Gateway</div>
+                <div className="py-3 pl-4 border-r border-gray-200">
+                  Gateway
+                </div>
                 <div className="py-3 pl-4 border-r border-gray-200">Method</div>
                 <div className="py-3 pl-4 border-r border-gray-200">Date</div>
                 <div className="py-3 pl-4 border-r border-gray-200">Status</div>
@@ -546,7 +607,9 @@ export default function PaymentsPage() {
                 <div className="py-20 text-center bg-white">
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="h-5 w-5 animate-spin text-[#E86B35]" />
-                    <p className="text-gray-500 font-medium text-sm">Loading payments...</p>
+                    <p className="text-gray-500 font-medium text-sm">
+                      Loading payments...
+                    </p>
                   </div>
                 </div>
               ) : payments.length === 0 ? (
@@ -559,19 +622,30 @@ export default function PaymentsPage() {
                     key={payment.paymentId}
                     className="border-b border-gray-100 last:border-b-0"
                   >
-                    <div className={cn(gridLayout, "text-sm items-stretch bg-white")}>
+                    <div
+                      className={cn(
+                        gridLayout,
+                        "text-sm items-stretch bg-white",
+                      )}
+                    >
                       <div className="flex items-center gap-3 border-r border-gray-100 py-4 pl-4">
                         <Checkbox
                           checked={selectedIds.includes(payment.paymentId)}
-                          onCheckedChange={(checked) => handleSelectOne(payment.paymentId, !!checked)}
+                          onCheckedChange={(checked) =>
+                            handleSelectOne(payment.paymentId, !!checked)
+                          }
                           className="rounded-sm"
                         />
-                        <Link href={`/admin/orders/${payment.orderId}`} className="text-gray-600 font-normal">
+                        <Link
+                          href={`/admin/orders/${payment.orderId}`}
+                          className="text-gray-600 font-normal"
+                        >
                           {payment.orderCode}
                         </Link>
                       </div>
                       <div className="flex items-center pl-4 text-gray-900 border-r border-gray-100 font-medium">
-                        {payment.currency} {payment.amount.toLocaleString()}
+                        {/* {payment.currency} */}₦
+                        {payment.amount.toLocaleString()}
                       </div>
                       <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 truncate">
                         {payment.provider}
@@ -580,41 +654,64 @@ export default function PaymentsPage() {
                         {payment.method}
                       </div>
                       <div className="flex items-center pl-4 text-gray-500 border-r border-gray-100 truncate">
-                        {format(new Date(payment.createdAt), "MMM d, yyyy HH:mm")}
+                        {format(
+                          new Date(payment.createdAt),
+                          "MMM d, yyyy HH:mm",
+                        )}
                       </div>
                       <div className="flex items-center border-r border-gray-100 px-4">
-                        <span className={cn(
-                          "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap w-full text-center",
-                          payment.status.toLowerCase() === "success" ? "bg-green-100 text-green-700" : 
-                          payment.status.toLowerCase() === "pending" ? "bg-yellow-100 text-yellow-700" : 
-                          "bg-red-100 text-red-700"
-                        )}>
+                        <span
+                          className={cn(
+                            "px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap w-full text-center",
+                            payment.status.toLowerCase() === "success"
+                              ? "bg-green-100 text-green-700"
+                              : payment.status.toLowerCase() === "pending"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700",
+                          )}
+                        >
                           {payment.status}
                         </span>
                       </div>
                       <div className="flex justify-center items-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal size={18} className="text-gray-400" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal
+                                size={18}
+                                className="text-gray-400"
+                              />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-md w-48">
-                            <DropdownMenuItem 
+                          <DropdownMenuContent
+                            align="end"
+                            className="rounded-md w-48"
+                          >
+                            {payment.status.toLowerCase() !== "success" && (
+                              <>
+                                <DropdownMenuItem
+                                  className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                                  onClick={() => fetchPayments()}
+                                >
+                                  <RotateCcw size={16} /> Recheck Status
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                                  onClick={() => handleVerifyPayment(payment)}
+                                >
+                                  <Check size={16} /> Verify Payment
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuItem
                               className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
-                              onClick={() => fetchPayments()}
-                            >
-                              <RotateCcw size={16} /> Recheck Status
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
-                              onClick={() => handleVerifyPayment(payment)}
-                            >
-                              <Check size={16} /> Verify Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
-                              onClick={() => handleViewMetadata(payment.paymentId)}
+                              onClick={() =>
+                                handleViewMetadata(payment.paymentId)
+                              }
                             >
                               <Copy size={16} /> View Metadata
                             </DropdownMenuItem>
@@ -750,31 +847,46 @@ export default function PaymentsPage() {
         {selectedPaymentForVerify && (
           <div className="space-y-4">
             <p className="text-sm text-gray-700">
-              Verify payment for order <span className="font-medium">#{selectedPaymentForVerify.orderCode.replace("#", "")}</span>
+              Verify payment for order{" "}
+              <span className="font-medium">
+                #{selectedPaymentForVerify.orderCode.replace("#", "")}
+              </span>
             </p>
             <div className="bg-gray-50 rounded-md p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Amount</span>
-                <span className="font-normal text-gray-900">{selectedPaymentForVerify.currency} {selectedPaymentForVerify.amount.toLocaleString()}</span>
+                <span className="font-normal text-gray-900">
+                  {selectedPaymentForVerify.currency}{" "}
+                  {selectedPaymentForVerify.amount.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Reference</span>
-                <span className="font-medium text-gray-700 text-xs">{selectedPaymentForVerify.reference}</span>
+                <span className="font-medium text-gray-700 text-xs">
+                  {selectedPaymentForVerify.reference}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Current Status</span>
-                <span className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase",
-                  selectedPaymentForVerify.status.toLowerCase() === "success" ? "bg-[#4CAF50]" : 
-                  selectedPaymentForVerify.status.toLowerCase() === "pending" ? "bg-[#FF9800]" : 
-                  "bg-[#F44336]"
-                )}>
+                <span
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase",
+                    selectedPaymentForVerify.status.toLowerCase() === "success"
+                      ? "bg-[#4CAF50]"
+                      : selectedPaymentForVerify.status.toLowerCase() ===
+                          "pending"
+                        ? "bg-[#FF9800]"
+                        : "bg-[#F44336]",
+                  )}
+                >
                   {selectedPaymentForVerify.status}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Gateway</span>
-                <span className="font-medium text-gray-700">{selectedPaymentForVerify.provider}</span>
+                <span className="font-medium text-gray-700">
+                  {selectedPaymentForVerify.provider}
+                </span>
               </div>
             </div>
             <p className="text-xs text-gray-400">
@@ -793,10 +905,16 @@ export default function PaymentsPage() {
         footer={
           <Button
             variant="outline"
-            onClick={() => metadataContent?.paymentId && handleViewMetadata(metadataContent.paymentId)}
+            onClick={() =>
+              metadataContent?.paymentId &&
+              handleViewMetadata(metadataContent.paymentId)
+            }
             disabled={isMetadataLoading}
           >
-            <RotateCcw size={16} className={cn("mr-2", isMetadataLoading && "animate-spin")} />
+            <RotateCcw
+              size={16}
+              className={cn("mr-2", isMetadataLoading && "animate-spin")}
+            />
             Recheck Status
           </Button>
         }
@@ -805,14 +923,18 @@ export default function PaymentsPage() {
           {isMetadataLoading ? (
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-white/50" />
-              <p className="text-white/50 text-sm font-medium">Fetching transaction logs...</p>
+              <p className="text-white/50 text-sm font-medium">
+                Fetching transaction logs...
+              </p>
             </div>
           ) : metadataContent ? (
             <>
-              <button 
+              <button
                 className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
                 onClick={() => {
-                  navigator.clipboard.writeText(JSON.stringify(metadataContent, null, 2));
+                  navigator.clipboard.writeText(
+                    JSON.stringify(metadataContent, null, 2),
+                  );
                   toast.success("Metadata copied to clipboard");
                 }}
               >

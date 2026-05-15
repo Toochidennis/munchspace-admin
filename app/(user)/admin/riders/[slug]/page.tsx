@@ -43,6 +43,7 @@ const TABS = [
 
 interface RiderProfile {
   riderId: string;
+  code: string;
   fullName: string;
   profilePictureUrl: string | null;
   registeredAt: string;
@@ -117,6 +118,7 @@ export default function RiderDetailsPage() {
   const [statusKey, setStatusKey] = React.useState("");
   const [statusReason, setStatusReason] = React.useState("");
   const [suspendReason, setSuspendReason] = React.useState("");
+  const [customSuspendReason, setCustomSuspendReason] = React.useState("");
 
   const fetchProfile = React.useCallback(async () => {
     try {
@@ -252,7 +254,7 @@ export default function RiderDetailsPage() {
           className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors mb-8 text-sm font-medium"
         >
           <ChevronLeft size={18} />
-          Riders / #{riderId}
+          Riders / {profile?.code || ""}
         </button>
 
         {/* Profile Header */}
@@ -263,6 +265,7 @@ export default function RiderDetailsPage() {
                 src={profile.profilePictureUrl || defaultAvatar}
                 alt={profile.fullName}
                 className="w-full h-full object-cover"
+                crossOrigin="anonymous"
               />
             </div>
             <div>
@@ -270,17 +273,25 @@ export default function RiderDetailsPage() {
                 <h1 className="text-2xl font-semibold text-gray-900">
                   {profile.fullName}
                 </h1>
-                <Badge className={cn(
-                  "border-none px-3 py-0.5 text-[10px] font-bold uppercase rounded",
-                  profile.status === "Approved" ? "bg-[#22C55E] text-white" :
-                  profile.status === "Suspended" ? "bg-red-500 text-white" :
-                  "bg-orange-500 text-white"
-                )}>
+                <Badge
+                  className={cn(
+                    "border-none px-3 py-0.5 text-[10px] font-bold uppercase rounded",
+                    profile.status === "Approved"
+                      ? "bg-[#22C55E] text-white"
+                      : profile.status === "Suspended"
+                        ? "bg-red-500 text-white"
+                        : "bg-orange-500 text-white",
+                  )}
+                >
                   {profile.status}
                 </Badge>
               </div>
               <p className="text-sm text-gray-400 mt-1 font-medium">
-                Joined on: {profile.registeredAt ? format(new Date(profile.registeredAt), "do MMM yyyy") : "N/A"}.
+                Joined on:{" "}
+                {profile.registeredAt
+                  ? format(new Date(profile.registeredAt), "do MMM yyyy")
+                  : "N/A"}
+                .
               </p>
             </div>
           </div>
@@ -299,7 +310,7 @@ export default function RiderDetailsPage() {
                 align="end"
                 className="w-56 p-1.5 shadow-xl border-gray-100 rounded-xl"
               >
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="gap-3 py-3 font-bold text-xs text-gray-700 cursor-pointer"
                   onClick={() => {
                     setStatusKey(profile.status.toLowerCase());
@@ -310,21 +321,26 @@ export default function RiderDetailsPage() {
                   <UserCheck size={16} className="text-gray-400" /> Mark Rider
                   as...
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="gap-3 py-3 font-bold text-xs text-gray-700 cursor-pointer"
                   onClick={() => setNotifyModalOpen(true)}
                 >
                   <Mail size={16} className="text-gray-400" /> Notify Rider...
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className={cn(
                     "gap-3 py-3 font-bold text-xs border-t mt-1 cursor-pointer",
-                    profile.status.toLowerCase() === "suspended" ? "text-green-600" : "text-red-500"
+                    profile.status.toLowerCase() === "suspended"
+                      ? "text-green-600"
+                      : "text-red-500",
                   )}
                   onClick={handleToggleSuspension}
                   disabled={isProcessing}
                 >
-                  <Ban size={16} /> {profile.status.toLowerCase() === "suspended" ? "Unsuspend Rider" : "Suspend Rider"}
+                  <Ban size={16} />{" "}
+                  {profile.status.toLowerCase() === "suspended"
+                    ? "Unsuspend Rider"
+                    : "Suspend Rider"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -353,8 +369,12 @@ export default function RiderDetailsPage() {
           {activeTab === "Details" && <DetailsTab riderId={riderId} />}
           {activeTab === "Deliveries" && <DeliveriesTab riderId={riderId} />}
           {activeTab === "Remittance" && <RemittanceTab riderId={riderId} />}
-          {activeTab === "KYC Documents" && <KYCDocumentsTab riderId={riderId} />}
-          {activeTab === "Activity logs" && <ActivityLogsTab riderId={riderId} />}
+          {activeTab === "KYC Documents" && (
+            <KYCDocumentsTab riderId={riderId} />
+          )}
+          {activeTab === "Activity logs" && (
+            <ActivityLogsTab riderId={riderId} />
+          )}
         </div>
       </div>
 
@@ -366,23 +386,32 @@ export default function RiderDetailsPage() {
         maxWidth="sm:max-w-[500px]"
         footer={
           <>
-            <Button variant="outline" onClick={() => setMarkAsModalOpen(false)}>Cancel</Button>
-            <Button 
+            <Button variant="outline" onClick={() => setMarkAsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
               className="bg-[#E86B35] hover:bg-[#d15d2c] text-white font-medium"
               onClick={handleMarkStatus}
               disabled={isProcessing || !statusKey}
             >
-              {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Update Status"}
+              {isProcessing ? (
+                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+              ) : (
+                "Update Status"
+              )}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-700">
-            Change status for rider: <span className="font-medium">{profile.fullName}</span>
+            Change status for rider:{" "}
+            <span className="font-medium">{profile.fullName}</span>
           </p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">New Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              New Status
+            </label>
             <Select value={statusKey} onValueChange={setStatusKey}>
               <SelectTrigger className="w-full border-gray-300 rounded-md p-3 text-sm h-11 focus:ring-2 focus:ring-[#E86B35]">
                 <SelectValue placeholder="Select new status" />
@@ -391,12 +420,16 @@ export default function RiderDetailsPage() {
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="pending_verification">Pending Verification</SelectItem>
+                <SelectItem value="pending_verification">
+                  Pending Verification
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason
+            </label>
             <textarea
               value={statusReason}
               onChange={(e) => setStatusReason(e.target.value)}
@@ -415,20 +448,27 @@ export default function RiderDetailsPage() {
         title="Notify Rider"
         footer={
           <>
-            <Button variant="outline" onClick={() => setNotifyModalOpen(false)}>Cancel</Button>
-            <Button 
+            <Button variant="outline" onClick={() => setNotifyModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
               className="bg-[#E86B35] hover:bg-[#d15d2c] text-white font-bold"
               onClick={handleNotify}
               disabled={isProcessing || !customMessage.trim()}
             >
-              {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Send Message"}
+              {isProcessing ? (
+                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+              ) : (
+                "Send Message"
+              )}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-700">
-            Send message to: <span className="font-bold">{profile.fullName}</span>
+            Send message to:{" "}
+            <span className="font-bold">{profile.fullName}</span>
           </p>
           <textarea
             value={customMessage}
@@ -448,43 +488,64 @@ export default function RiderDetailsPage() {
         maxWidth="sm:max-w-[500px]"
         footer={
           <>
-            <Button variant="outline" onClick={() => setSuspendModalOpen(false)}>Cancel</Button>
-            <Button 
-              className="bg-red-500 hover:bg-red-600 text-white font-medium"
-              onClick={() => confirmSuspension(false, suspendReason)}
-              disabled={isProcessing || !suspendReason.trim()}
+            <Button
+              variant="outline"
+              onClick={() => setSuspendModalOpen(false)}
             >
-              {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : "Suspend Rider"}
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-500 hover:bg-red-600 text-white font-medium"
+              onClick={() => confirmSuspension(false, suspendReason === "Other" ? customSuspendReason : suspendReason)}
+              disabled={isProcessing || !suspendReason.trim() || (suspendReason === "Other" && !customSuspendReason.trim())}
+            >
+              {isProcessing ? (
+                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+              ) : (
+                "Suspend Rider"
+              )}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-700">
-            Provide a reason for suspending rider: <span className="font-medium">{profile.fullName}</span>
+            Provide a reason for suspending rider:{" "}
+            <span className="font-medium">{profile.fullName}</span>
           </p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Suspension</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason for Suspension
+            </label>
             <Select value={suspendReason} onValueChange={setSuspendReason}>
               <SelectTrigger className="w-full border-gray-300 rounded-md p-3 text-sm h-11 focus:ring-2 focus:ring-red-500">
                 <SelectValue placeholder="Select a reason" />
               </SelectTrigger>
               <SelectContent className="z-[110]">
-                <SelectItem value="Repeated delivery misconduct">Repeated delivery misconduct</SelectItem>
-                <SelectItem value="Late deliveries">Frequent late deliveries</SelectItem>
-                <SelectItem value="Customer complaints">High volume of customer complaints</SelectItem>
-                <SelectItem value="Policy violation">Violation of company policy</SelectItem>
+                <SelectItem value="Repeated delivery misconduct">
+                  Repeated delivery misconduct
+                </SelectItem>
+                <SelectItem value="Late deliveries">
+                  Frequent late deliveries
+                </SelectItem>
+                <SelectItem value="Customer complaints">
+                  High volume of customer complaints
+                </SelectItem>
+                <SelectItem value="Policy violation">
+                  Violation of company policy
+                </SelectItem>
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {suspendReason === "Other" && (
-             <textarea
-               onChange={(e) => setSuspendReason(e.target.value)}
-               placeholder="Specify the reason..."
-               rows={3}
-               className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[100px]"
-             />
+            <textarea
+              value={customSuspendReason}
+              onChange={(e) => setCustomSuspendReason(e.target.value)}
+              placeholder="Enter custom reason..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-y min-h-[80px]"
+            />
           )}
         </div>
       </CustomModal>

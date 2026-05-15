@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import {
   ChevronLeft,
   ChevronDown,
@@ -16,6 +17,9 @@ import {
   CheckCircle2,
   Ban,
   Loader2,
+  RotateCcw,
+  Download,
+  Eye,
 } from "lucide-react";
 import { authenticatedFetch, parseApiResponse } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -60,21 +64,49 @@ interface Cart {
   cartTotalAmount: number;
 }
 
-const CustomDialog = ({ isOpen, onClose, title, children }: any) => {
+const CustomDialog = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  maxWidth = "sm:max-w-[640px]",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  maxWidth?: string;
+}) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between p-4 border-b border-slate-100">
-          <h2 className="font-bold text-slate-900">{title}</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div
+        className={cn(
+          "relative w-full bg-white shadow-xl overflow-hidden rounded animate-in zoom-in-95 duration-200",
+          maxWidth,
+        )}
+      >
+        <div className="flex border-b items-center justify-between px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <button
+            className="text-gray-400 hover:text-gray-600 transition-colors"
             onClick={onClose}
-            className="p-1 hover:bg-slate-100 rounded-full text-slate-400"
           >
-            <X size={20} />
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div>{children}</div>
+        <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-white">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -82,7 +114,7 @@ const CustomDialog = ({ isOpen, onClose, title, children }: any) => {
 
 export default function CustomerDetailsView({ customer, onBack }: any) {
   const [activePurchaseTab, setActivePurchaseTab] = React.useState("ALL");
-  const [purchaseTime, setPurchaseTime] = React.useState("7");
+  const [purchaseRange, setPurchaseRange] = React.useState("last_30_days");
   const [expandedPurchases, setExpandedPurchases] = React.useState<string[]>(
     [],
   );
@@ -90,7 +122,7 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
   const [isNotifyOpen, setIsNotifyOpen] = React.useState(false);
   const [isSuspendOpen, setIsSuspendOpen] = React.useState(false);
   const [logSearch, setLogSearch] = React.useState("");
-  const [logTime, setLogTime] = React.useState("7");
+  const [logRange, setLogRange] = React.useState("last_30_days");
   const [notificationOption, setNotificationOption] = React.useState<
     "predefined" | "custom" | null
   >(null);
@@ -112,6 +144,14 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
   const [purchaseCounts, setPurchaseCounts] = React.useState<
     Record<string, number>
   >({});
+  const [purchaseGroups, setPurchaseGroups] = React.useState<any[]>([]);
+
+  // Activity Logs Data
+  const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
+  const [isLogsLoading, setIsLogsLoading] = React.useState(false);
+  const [logsPage, setLogsPage] = React.useState(1);
+  const [logsTotalPages, setLogsTotalPages] = React.useState(1);
+  const [debouncedLogSearch, setDebouncedLogSearch] = React.useState("");
 
   const fetchCartData = React.useCallback(async () => {
     if (!customer?.id) return;
@@ -131,6 +171,50 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
     }
   }, [customer?.id]);
 
+  // Debounce log search
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedLogSearch(logSearch);
+      setLogsPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [logSearch]);
+
+  const fetchActivityLogs = React.useCallback(async () => {
+    if (!customer?.id) return;
+    try {
+      setIsLogsLoading(true);
+      const params = new URLSearchParams();
+      params.set("page", logsPage.toString());
+      params.set("limit", "20");
+      if (logRange && logRange !== "all") {
+        params.set("range", logRange);
+      }
+      if (debouncedLogSearch) {
+        params.set("keyword", debouncedLogSearch);
+      }
+
+      const res = await authenticatedFetch(
+        `/admin/customers/${customer.id}/activity?${params.toString()}`
+      );
+      const apiRes = await parseApiResponse(res);
+      if (apiRes?.success) {
+        setActivityLogs(apiRes.data.data || []);
+        setLogsTotalPages(apiRes.data.meta?.totalPages || 1);
+      }
+    } catch (err) {
+      console.error("Failed to fetch activity logs:", err);
+    } finally {
+      setIsLogsLoading(false);
+    }
+  }, [customer?.id, logsPage, logRange, debouncedLogSearch]);
+
+  React.useEffect(() => {
+    if (isLogsOpen) {
+      fetchActivityLogs();
+    }
+  }, [isLogsOpen, fetchActivityLogs]);
+
   const fetchPurchases = React.useCallback(async () => {
     if (!customer?.id) return;
     try {
@@ -143,12 +227,8 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
         params.set("status", activePurchaseTab);
       }
 
-      if (purchaseTime && purchaseTime !== "all") {
-        const end = new Date();
-        const start = new Date();
-        start.setDate(end.getDate() - parseInt(purchaseTime));
-        params.set("startDate", start.toISOString());
-        params.set("endDate", end.toISOString());
+      if (purchaseRange && purchaseRange !== "all") {
+        params.set("range", purchaseRange);
       }
 
       const res = await authenticatedFetch(
@@ -160,19 +240,14 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
         const data = apiRes.data;
         let ordersList = [];
 
-        if (
-          Array.isArray(data?.data) &&
-          data.data.length > 0 &&
-          data.data[0].orders
-        ) {
-          // Flatten groups from data.data
-          ordersList = data.data.flatMap((g: any) => g.orders || []);
-        } else if (data?.groups) {
-          // Flatten groups from data.groups
-          ordersList = data.groups.flatMap((g: any) => g.orders || []);
-        } else if (Array.isArray(data?.data)) {
-          // Direct array
-          ordersList = data.data;
+        if (Array.isArray(data?.data)) {
+          if (data.data.length > 0 && data.data[0].orders) {
+            // Flatten groups from data.data
+            ordersList = data.data.flatMap((g: any) => g.orders || []);
+          } else {
+            // Direct array in data.data
+            ordersList = data.data;
+          }
         } else if (Array.isArray(data)) {
           // Direct array at root
           ordersList = data;
@@ -186,8 +261,13 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
         }
 
         if (data?.groups) {
+          // Only update the groups list (tabs) when fetching all or if not yet set
+          // to prevent tabs from disappearing when a specific status is filtered.
+          if (activePurchaseTab === "ALL" || purchaseGroups.length === 0) {
+            setPurchaseGroups(data.groups);
+          }
           setPurchaseCounts((prev) => {
-            const newCounts = activePurchaseTab === "ALL" ? {} : { ...prev };
+            const newCounts = { ...prev };
             data.groups.forEach((g: any) => {
               if (g.status?.key) {
                 newCounts[g.status.key] = g.total || 0;
@@ -205,7 +285,7 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
     } finally {
       setIsPurchasesLoading(false);
     }
-  }, [customer?.id, currentPage, activePurchaseTab, purchaseTime]);
+  }, [customer?.id, currentPage, activePurchaseTab, purchaseRange]);
 
   React.useEffect(() => {
     fetchCartData();
@@ -215,7 +295,7 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
     fetchPurchases();
   }, [fetchPurchases]);
 
-  const handleNotify = async () => {
+  const handleNotifyCustomer = async () => {
     let finalMessage = "";
     if (notificationOption === "predefined") {
       finalMessage =
@@ -425,25 +505,30 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
             align="end"
             className="w-56 p-1 rounded-xl shadow-xl border-slate-100"
           >
+            <DropdownMenuItem asChild className="gap-2 text-xs py-2.5 font-normal cursor-pointer">
+              <Link href={`/admin/customers/${customer?.id}`}>
+                <Eye size={14} /> View Details
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setIsNotifyOpen(true)}
-              className="gap-3 py-3 text-xs font-normal cursor-pointer"
+              className="gap-2 text-xs py-2.5 font-normal cursor-pointer"
             >
-              <Mail size={16} className="text-slate-500" /> Notify Customer...
+              <Mail size={14} /> Notify Customer...
             </DropdownMenuItem>
             {customer?.isActive ? (
               <DropdownMenuItem
                 onClick={() => setIsSuspendOpen(true)}
-                className="gap-3 py-3 text-xs font-normal text-red-600 border-t border-slate-50 cursor-pointer focus:text-red-700"
+                className="gap-2 text-xs py-2.5 font-normal text-red-600 border-t cursor-pointer focus:text-red-700"
               >
-                <AlertCircle size={16} /> Suspend Customer
+                <AlertCircle size={14} /> Suspend Customer
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
                 onClick={handleUnsuspend}
-                className="gap-3 py-3 text-xs font-normal text-green-600 border-t border-slate-50 cursor-pointer focus:text-green-700"
+                className="gap-2 text-xs py-2.5 font-normal text-green-600 border-t cursor-pointer focus:text-green-700"
               >
-                <CheckCircle2 size={16} /> Unsuspend Customer
+                <CheckCircle2 size={14} /> Unsuspend Customer
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -529,6 +614,7 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
                               (e.target as HTMLImageElement).src =
                                 "https://placehold.co/100x100?text=Food";
                             }}
+                            crossOrigin="anonymous"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -572,20 +658,27 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-sm">Purchases</h3>
               <Select
-                value={purchaseTime}
+                value={purchaseRange}
                 onValueChange={(val) => {
-                  setPurchaseTime(val);
+                  setPurchaseRange(val);
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-36 h-8 text-[11px] font-bold border-slate-200 focus:ring-0">
+                <SelectTrigger className="w-40 h-8 text-[11px] font-bold border-slate-200 focus:ring-0">
                   <Calendar size={14} className="mr-2 text-slate-400" />
-                  <SelectValue placeholder="Last 7 Days" />
+                  <SelectValue placeholder="Last 30 Days" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">Last 7 Days</SelectItem>
-                  <SelectItem value="30">Last 30 Days</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
+                <SelectContent className="z-[150]">
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                  <SelectItem value="last_week">Last week</SelectItem>
+                  <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                  <SelectItem value="last_90_days">Last 90 days</SelectItem>
+                  <SelectItem value="last_6_months">Last 6 months</SelectItem>
+                  <SelectItem value="this_month">This month</SelectItem>
+                  <SelectItem value="last_month">Last month</SelectItem>
+                  <SelectItem value="this_year">This year</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -606,37 +699,17 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
                   >
                     All ({totalPurchaseCount})
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="PENDING_CONFIRMATION"
-                    className="rounded-none border-0 border-b-2 border-transparent bg-transparent pb-3 font-bold text-[11px] data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] text-slate-500 shadow-none whitespace-nowrap"
-                  >
-                    Pending Confirmation (
-                    {purchaseCounts["PENDING_CONFIRMATION"] || 0})
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="OUT_FOR_DELIVERY"
-                    className="rounded-none border-0 border-b-2 border-transparent bg-transparent pb-3 font-bold text-[11px] data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] text-slate-500 shadow-none whitespace-nowrap"
-                  >
-                    Out for Delivery ({purchaseCounts["OUT_FOR_DELIVERY"] || 0})
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="COMPLETED"
-                    className="rounded-none border-0 border-b-2 border-transparent bg-transparent pb-3 font-bold text-[11px] data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] text-slate-500 shadow-none"
-                  >
-                    Delivered ({purchaseCounts["COMPLETED"] || 0})
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="CANCELLED"
-                    className="rounded-none border-0 border-b-2 border-transparent bg-transparent pb-3 font-bold text-[11px] data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] text-slate-500 shadow-none"
-                  >
-                    Cancelled ({purchaseCounts["CANCELLED"] || 0})
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="RETURNED"
-                    className="rounded-none border-0 border-b-2 border-transparent bg-transparent pb-3 font-bold text-[11px] data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] text-slate-500 shadow-none whitespace-nowrap"
-                  >
-                    Returned & Refunded ({purchaseCounts["RETURNED"] || 0})
-                  </TabsTrigger>
+                  {purchaseGroups
+                    .filter((group) => group.total > 0)
+                    .map((group) => (
+                      <TabsTrigger
+                        key={group.status.key}
+                        value={group.status.key}
+                        className="rounded-none border-0 border-b-2 border-transparent bg-transparent pb-3 font-bold text-[11px] data-[state=active]:border-[#E86B35] data-[state=active]:text-[#E86B35] text-slate-500 shadow-none whitespace-nowrap"
+                      >
+                        {group.status.label} ({group.total})
+                      </TabsTrigger>
+                    ))}
                 </TabsList>
               </div>
 
@@ -846,7 +919,6 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
         </div>
       </div>
 
-      {/* Notify Modal */}
       <CustomDialog
         isOpen={isNotifyOpen}
         onClose={() => {
@@ -855,80 +927,75 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
           setCustomMessage("");
         }}
         title="Notify Customer..."
+        maxWidth="sm:max-w-md"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsNotifyOpen(false);
+                setNotificationOption(null);
+                setCustomMessage("");
+              }}
+              className="h-10 text-xs font-bold rounded-lg px-6 border-slate-200 text-slate-600 shadow-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleNotifyCustomer}
+              className="h-10 text-xs font-bold bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-lg px-6 shadow-none"
+            >
+              Send Message
+            </Button>
+          </>
+        }
       >
-        <div className="p-6 space-y-6">
+        <div className="space-y-6">
           <p className="text-sm text-slate-600">
-            Send a <span className="font-bold text-slate-900">Email</span>{" "}
-            notification to{" "}
+            Send an <span className="font-bold text-slate-900">Email</span> notification to{" "}
             <span className="font-bold text-slate-900">
-              {customer?.fullName}
+              {customer?.email}
             </span>
             :
           </p>
           <div className="space-y-4">
             <div className="flex items-start gap-3 p-4 border border-slate-100 rounded-lg bg-slate-50/30">
               <Checkbox
-                id="n1"
+                id="pop1"
                 checked={notificationOption === "predefined"}
                 onCheckedChange={() => setNotificationOption("predefined")}
                 className="mt-0.5 data-[state=checked]:bg-[#E86B35] border-slate-300"
               />
-              <label
-                htmlFor="n1"
-                className="text-xs font-bold text-slate-700 cursor-pointer leading-tight"
-              >
-                Notify customer to clear their cart before items run out of
-                stock
+              <label htmlFor="pop1" className="text-xs font-bold text-slate-700 cursor-pointer leading-tight">
+                Notify customer to clear their cart before items run out of stock
               </label>
             </div>
             <div className="flex items-start gap-3 p-4 border border-slate-100 rounded-lg bg-slate-50/30">
               <Checkbox
-                id="n2"
+                id="pop2"
                 checked={notificationOption === "custom"}
                 onCheckedChange={() => setNotificationOption("custom")}
                 className="mt-0.5 data-[state=checked]:bg-[#E86B35] border-slate-300"
               />
-              <label
-                htmlFor="n2"
-                className="text-xs font-bold text-slate-700 cursor-pointer"
-              >
+              <label htmlFor="pop2" className="text-xs font-bold text-slate-700 cursor-pointer">
                 Custom Message
               </label>
             </div>
+
             {notificationOption === "custom" && (
-              <div className="animate-in fade-in slide-in-from-top-2">
+              <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                 <Textarea
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   placeholder="Type your message here..."
-                  className="text-xs border-slate-200 min-h-[100px] focus-visible:ring-1 focus-visible:ring-[#E86B35] focus:border-[#E86B35]"
+                  className="text-xs border-slate-200 min-h-[120px] focus-visible:ring-1 focus-visible:ring-[#E86B35] focus:border-[#E86B35] rounded-lg shadow-none"
                 />
               </div>
             )}
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsNotifyOpen(false)}
-              className="h-10 text-xs font-bold rounded-lg px-6 border-slate-200 text-slate-600"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleNotify}
-              disabled={isProcessing}
-              className="h-10 text-xs font-bold bg-[#E86B35] hover:bg-[#d15d2c] text-white rounded-lg px-6 shadow-lg shadow-orange-100/50"
-            >
-              {isProcessing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Send Message
-            </Button>
-          </div>
         </div>
       </CustomDialog>
 
-      {/* Suspend Modal */}
       <CustomDialog
         isOpen={isSuspendOpen}
         onClose={() => {
@@ -939,82 +1006,56 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
           }
         }}
         title="Suspend Customer"
-      >
-        <div className="p-6 space-y-6">
-          <div className="space-y-4">
-            <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex gap-3">
-              <AlertCircle className="text-red-500 shrink-0" size={20} />
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-red-900">
-                  Suspension Action
-                </p>
-                <p className="text-xs text-red-700 leading-relaxed">
-                  Suspending this customer will prevent them from placing new
-                  orders or accessing their account until unsuspended.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
-                  Reason for Suspension
-                </label>
-                <Select value={suspendReason} onValueChange={setSuspendReason}>
-                  <SelectTrigger className="w-full h-11 border-slate-200 bg-white text-sm focus:ring-[#E86B35]">
-                    <SelectValue placeholder="Select a reason" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[150]">
-                    <SelectItem value="Repeated cancellation of orders">
-                      Repeated cancellation of orders
-                    </SelectItem>
-                    <SelectItem value="Fraudulent activity detected">
-                      Fraudulent activity detected
-                    </SelectItem>
-                    <SelectItem value="Payment issues/disputes">
-                      Payment issues/disputes
-                    </SelectItem>
-                    <SelectItem value="Inappropriate behavior/harassment">
-                      Inappropriate behavior/harassment
-                    </SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
-                  Administrative Note
-                </label>
-                <Textarea
-                  value={suspendNote}
-                  onChange={(e) => setSuspendNote(e.target.value)}
-                  placeholder="Provide detailed internal notes about this suspension..."
-                  className="min-h-[120px] border-slate-200 focus:border-[#E86B35] focus:ring-[#E86B35] text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
+        footer={
+          <>
             <Button
               variant="outline"
+              onClick={() => {
+                setIsSuspendOpen(false);
+                setSuspendReason("");
+                setSuspendNote("");
+              }}
               disabled={isProcessing}
-              onClick={() => setIsSuspendOpen(false)}
-              className="h-11 px-8 text-xs font-bold border-slate-200 text-slate-600 rounded-xl"
+              className="h-10 text-xs font-bold rounded-lg px-6 border-slate-200 text-slate-600 shadow-none"
             >
               Cancel
             </Button>
             <Button
-              disabled={isProcessing || !suspendReason || !suspendNote.trim()}
               onClick={handleSuspend}
-              className="h-11 px-8 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg shadow-red-100/50"
+              disabled={isProcessing || !suspendReason.trim() || !suspendNote.trim()}
+              className="h-10 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg px-6 shadow-none flex items-center gap-2"
             >
-              {isProcessing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Confirm Suspension
+              {isProcessing && <Loader2 size={14} className="animate-spin" />}
+              {isProcessing ? "Suspending..." : "Confirm Suspension"}
             </Button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          <p className="text-sm text-slate-600">
+            You are about to suspend <span className="font-bold text-slate-900">{customer?.fullName}</span>. Please provide a reason.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">Reason (Mandatory)</label>
+              <Input
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                placeholder="e.g. Repeated policy violations"
+                className="text-xs border-slate-200 focus-visible:ring-1 focus-visible:ring-red-500 focus:border-red-500 shadow-none"
+                disabled={isProcessing}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">Note (Mandatory)</label>
+              <Textarea
+                value={suspendNote}
+                onChange={(e) => setSuspendNote(e.target.value)}
+                placeholder="e.g. Third strike: fraudulent chargeback"
+                className="text-xs border-slate-200 min-h-[100px] focus-visible:ring-1 focus-visible:ring-red-500 focus:border-red-500 shadow-none"
+                disabled={isProcessing}
+              />
+            </div>
           </div>
         </div>
       </CustomDialog>
@@ -1025,7 +1066,7 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
         onClose={() => setIsLogsOpen(false)}
         title="Activity logs"
       >
-        <div className="p-5 space-y-5 bg-white">
+        <div className="space-y-5 bg-white">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search
@@ -1039,60 +1080,104 @@ export default function CustomerDetailsView({ customer, onBack }: any) {
                 className="w-full pl-9 h-10 text-xs border border-slate-200 rounded-lg outline-none focus:border-[#E86B35] transition-colors"
               />
             </div>
-            <Select value={logTime} onValueChange={setLogTime}>
-              <SelectTrigger className="w-36 h-10 text-xs font-bold border-slate-200 focus:ring-0">
+            <Select value={logRange} onValueChange={(val) => { setLogRange(val); setLogsPage(1); }}>
+              <SelectTrigger className="w-40 h-10 text-xs font-medium border-slate-200 focus:ring-0">
                 <Calendar size={14} className="mr-2" />
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-lg shadow-xl">
-                <SelectItem value="7">Last 7 Days</SelectItem>
-                <SelectItem value="30">Last 30 Days</SelectItem>
+              <SelectContent className="rounded-lg shadow-xl z-[150]">
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                <SelectItem value="last_week">Last week</SelectItem>
+                <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                <SelectItem value="last_90_days">Last 90 days</SelectItem>
+                <SelectItem value="last_6_months">Last 6 months</SelectItem>
+                <SelectItem value="this_month">This month</SelectItem>
+                <SelectItem value="last_month">Last month</SelectItem>
+                <SelectItem value="this_year">This year</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-6 pt-4 pb-6 max-h-[400px] overflow-y-auto custom-scrollbar">
-            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-              Tuesday, 28 Sep 2024
-            </h4>
-            <div className="relative pl-6 space-y-8 before:absolute before:left-[3px] before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-100">
-              {[
-                {
-                  time: "12:00 PM",
-                  text: "Order #1054 delivered by Courier (Ibrahim Lookman).",
-                },
-                {
-                  time: "01:10 PM",
-                  text: "Customer logged in from a new device (IP: 192.168.1.2).",
-                },
-                {
-                  time: "01:15 PM",
-                  text: "Account activated by admin (Mandy Lastina).",
-                },
-                {
-                  time: "02:30 PM",
-                  text: "Order #1054 shipped via Courier XYZ.",
-                },
-              ]
-                .filter((l) =>
-                  l.text.toLowerCase().includes(logSearch.toLowerCase()),
-                )
-                .map((log, i) => (
-                  <div
-                    key={i}
-                    className="relative flex gap-4 animate-in slide-in-from-left-1 duration-200"
-                  >
-                    <div className="absolute -left-[27.5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-white shadow-sm" />
-                    <span className="text-[11px] font-bold text-slate-900 w-16">
-                      {log.time}:
-                    </span>
-                    <span className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                      {log.text}
-                    </span>
+          <div className="space-y-6 pt-4 pb-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+            {isLogsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-[#E86B35]" />
+              </div>
+            ) : activityLogs.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-slate-400">No activity logs found.</p>
+              </div>
+            ) : (
+              activityLogs.map((group: any, gi: number) => (
+                <div key={gi} className="space-y-4">
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                    {(() => {
+                      try {
+                        return format(new Date(group.date), "EEEE, dd MMM yyyy");
+                      } catch {
+                        return group.date;
+                      }
+                    })()}
+                  </h4>
+                  <div className="relative pl-6 space-y-6 before:absolute before:left-[3px] before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-100">
+                    {(group.activities || []).map((activity: any, ai: number) => (
+                      <div
+                        key={ai}
+                        className="relative flex gap-4 animate-in slide-in-from-left-1 duration-200"
+                      >
+                        <div className="absolute -left-[27.5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-white shadow-sm" />
+                        <span className="text-[11px] font-bold text-slate-900 w-16 shrink-0">
+                          {(() => {
+                            try {
+                              return format(new Date(activity.createdAt), "hh:mm a");
+                            } catch {
+                              return activity.time || "";
+                            }
+                          })()}:
+                        </span>
+                        <span className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                          {activity.note}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-            </div>
+                </div>
+              ))
+            )}
           </div>
+
+          {/* Pagination */}
+          {logsTotalPages > 1 && (
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <span className="text-[11px] text-slate-400">
+                Page {logsPage} of {logsTotalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={logsPage <= 1}
+                  onClick={() => setLogsPage((p) => Math.max(1, p - 1))}
+                  className={cn(
+                    "p-1.5 rounded hover:bg-slate-100 text-slate-400 transition-colors",
+                    logsPage > 1 && "text-slate-600",
+                  )}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  disabled={logsPage >= logsTotalPages}
+                  onClick={() => setLogsPage((p) => Math.min(logsTotalPages, p + 1))}
+                  className={cn(
+                    "p-1.5 rounded hover:bg-slate-100 text-slate-400 transition-colors",
+                    logsPage < logsTotalPages && "text-slate-600",
+                  )}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </CustomDialog>
     </div>

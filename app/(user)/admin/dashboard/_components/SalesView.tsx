@@ -9,7 +9,10 @@ import {
   ChevronRight,
   MoreHorizontal,
   Info,
+  Eye,
 } from "lucide-react";
+import Link from "next/link";
+import { format } from "date-fns";
 import {
   LineChart,
   Line,
@@ -31,10 +34,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MOCK_SALES_ORDERS, dailyData } from "../lib/dashboard-data";
 import { getFilteredData, getPageNumbers } from "../lib//dashboard-utils";
 import { StatCard } from "./StatCard";
 import { authenticatedFetch, parseApiResponse } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export const SalesView = ({ range = "last_30_days", refreshTrigger = 0 }: { range?: string, refreshTrigger?: number }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,10 +94,9 @@ export const SalesView = ({ range = "last_30_days", refreshTrigger = 0 }: { rang
     if (!data?.table?.groups) return [];
     const allOrders = data.table.groups.flatMap((g: any) => g.orders || []);
     return allOrders.map((o: any) => ({
-      id: o.orderCode || o.orderId,
-      date: new Date(o.createdAt).toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric'
-      }),
+      id: o.orderId,
+      orderCode: o.orderCode || o.orderId,
+      date: o.createdAt ? format(new Date(o.createdAt), "do MMM yyyy, h:mm a") : "—",
       customer: o.customerName || "Unknown",
       vendor: o.businessName || "Unknown",
       status: o.status?.label || "Unknown",
@@ -203,54 +212,56 @@ export const SalesView = ({ range = "last_30_days", refreshTrigger = 0 }: { rang
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 py-4 border-b">
-            <p className="text-sm">Selected: 0</p>
-            <Button variant="outline" size="sm" className="rounded-md">
-              Mark Order As...
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-md">
-              Notify Vendor...
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-md">
-              Cancel Order
-            </Button>
-          </div>
+          <div className="py-2" />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="p-4 text-left">
-                    <Checkbox />
-                  </th>
-                  <th className="p-4 text-left">Order ID</th>
-                  <th className="p-4 text-left">Date Created</th>
-                  <th className="p-4 text-left">Customer Name</th>
-                  <th className="p-4 text-left">Vendor Name</th>
-                  <th className="p-4 text-left">Status</th>
-                  <th className="p-4 text-left">Total Amount</th>
+                <tr className="border-b bg-gray-50/30">
+                  <th className="p-4 text-left font-medium text-gray-500">Order ID</th>
+                  <th className="p-4 text-left font-medium text-gray-500">Date Created</th>
+                  <th className="p-4 text-left font-medium text-gray-500">Customer Name</th>
+                  <th className="p-4 text-left font-medium text-gray-500">Vendor Name</th>
+                  <th className="p-4 text-left font-medium text-gray-500">Status</th>
+                  <th className="p-4 text-left font-medium text-gray-500">Total Amount</th>
                   <th className="p-4"></th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.map((item: any) => (
-                  <tr key={item.id} className="border-b">
+                  <tr key={item.id} className="border-b hover:bg-gray-50/50 transition-colors">
+                    <td className="p-4 font-medium text-gray-900">{item.orderCode}</td>
+                    <td className="p-4 text-gray-600">{item.date}</td>
+                    <td className="p-4 text-gray-600">{item.customer}</td>
+                    <td className="p-4 text-gray-600">{item.vendor}</td>
                     <td className="p-4">
-                      <Checkbox />
-                    </td>
-                    <td className="p-4">{item.id}</td>
-                    <td className="p-4">{item.date}</td>
-                    <td className="p-4">{item.customer}</td>
-                    <td className="p-4">{item.vendor}</td>
-                    <td className="p-4">
-                      <Badge className="bg-green-100 text-green-700 rounded-md">
+                      <Badge className={cn(
+                        "rounded-md px-2 py-0.5 font-medium text-[11px] uppercase",
+                        item.status === "Completed" ? "bg-green-100 text-green-700" :
+                        item.status === "Cancelled" ? "bg-red-100 text-red-700" :
+                        "bg-yellow-100 text-yellow-700"
+                      )}>
                         {item.status}
                       </Badge>
                     </td>
-                    <td className="p-4">{item.amount}</td>
+                    <td className="p-4 font-medium text-gray-900">{item.amount}</td>
                     <td className="p-4">
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal size={16} />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal size={18} className="text-gray-400" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-md w-48">
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/admin/orders/${item.id}`}
+                              className="flex items-center gap-2 py-2.5 w-full cursor-pointer"
+                            >
+                              <Eye size={16} className="text-gray-400" /> View Details
+                            </Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}
